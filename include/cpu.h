@@ -1,11 +1,18 @@
 #pragma once
 #include <cstdint>
 
+class Bus;
+
 class CPU {
 
 public:
+  enum CYCLE_TYPE {
+    NON_SEQ,
+    SEQ,
+  };
+
   // instr[31:28]
-  enum COND_FIELD {
+  enum COND {
     EQ = 0x0,
     NE = 0x1,
     CS = 0x2,
@@ -23,22 +30,34 @@ public:
     AL = 0xe,
   };
 
+  // cspr[7:0] = I F T M[4:0]
+  enum CONTROL {
+    I = 1 << 7,
+    F = 1 << 6,
+    T = 1 << 5,
+    M = 1 << 4 | 1 << 3 | 1 << 2 | 1 << 1 | 1 << 0,
+  };
+
+  bool eval_cond(uint32_t instr);
+
+  uint32_t get_reg(uint8_t reg);
+  void set_reg(uint8_t reg, uint32_t val);
+
+  uint32_t get_cpsr();
+  void set_cpsr(uint32_t val);
+
+  void cycle(uint64_t count);
+
+private:
   // cspr[31:28] = N Z C V
-  enum COND_CODE {
+  enum FLAG {
     N = 1 << 31,
     Z = 1 << 30,
     C = 1 << 29,
     V = 1 << 28,
   };
 
-  // cspr[7:0] = I F T M[4:0]
-  enum CONTROL_BITS {
-    I = 1 << 7,
-    F = 1 << 6,
-    T = 1 << 5,
-    M = 0x1f,
-  };
-
+  // cspr[4:0]
   enum MODE {
     USR = 0x10,
     FIQ = 0x11,
@@ -63,5 +82,23 @@ public:
   uint32_t spsr_irq;
   uint32_t spsr_und;
 
-  bool eval_cond(uint32_t instr);
+  uint32_t pipeline[2];
+
+  uint64_t cycles;
+
+  void arm_fetch();
+  void arm_fetch_next();
+
+  void thumb_fetch();
+  void thumb_fetch_next();
+
+  MODE get_mode();
+
+  uint32_t get_psr();
+  void set_psr(uint32_t val);
+
+  bool get_cc(FLAG f);
+  void set_cc(FLAG f, bool val);
+
+  Bus *bus;
 };
