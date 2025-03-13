@@ -2,6 +2,7 @@
 #include <cstdint>
 
 class Bus;
+class ARM;
 
 class CPU {
 
@@ -38,6 +39,8 @@ public:
     M = 1 << 4 | 1 << 3 | 1 << 2 | 1 << 1 | 1 << 0,
   };
 
+  CPU(Bus &bus);
+
   bool eval_cond(uint32_t instr);
 
   uint32_t get_reg(uint8_t reg);
@@ -47,6 +50,12 @@ public:
   void set_cpsr(uint32_t val);
 
   void cycle(uint64_t count);
+
+  void arm_fetch();
+  uint32_t arm_fetch_next();
+
+  void thumb_fetch();
+  void thumb_fetch_next();
 
 private:
   // cspr[31:28] = N Z C V
@@ -82,15 +91,10 @@ private:
   uint32_t spsr_irq;
   uint32_t spsr_und;
 
+  CYCLE_TYPE cycle_type;
+
   uint32_t pipeline[2];
-
   uint64_t cycles;
-
-  void arm_fetch();
-  void arm_fetch_next();
-
-  void thumb_fetch();
-  void thumb_fetch_next();
 
   MODE get_mode();
 
@@ -100,5 +104,7 @@ private:
   bool get_cc(FLAG f);
   void set_cc(FLAG f, bool val);
 
-  Bus *bus;
+  Bus &bus;
+
+  ARM *arm;
 };

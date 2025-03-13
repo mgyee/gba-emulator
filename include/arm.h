@@ -3,6 +3,9 @@
 #include "cpu.h"
 #include <cstdint>
 class ARM {
+public:
+  ARM(CPU &cpu);
+
 private:
   enum INSTR_TYPE {
     BX,
@@ -39,7 +42,7 @@ private:
     // MSR
   };
 
-  CPU *cpu;
+  CPU &cpu;
 
   bool is_bx(uint32_t instr);
   bool is_bdt(uint32_t instr);
@@ -69,5 +72,5 @@ private:
   void pmsr(uint32_t instr);
   void dproc(uint32_t instr);
 
-  uint32_t arm_execute();
+  void run();
 };

@@ -1,5 +1,8 @@
 #include "cpu.h"
+#include "arm.h"
 #include "bus.h"
+
+CPU::CPU(Bus &bus) : bus(bus), arm(new ARM(*this)) {};
 
 CPU::MODE CPU::get_mode() { return static_cast<MODE>(this->cpsr & CONTROL::M); }
 
@@ -9,17 +12,26 @@ void CPU::set_cpsr(uint32_t val) { cpsr = val; }
 void CPU::cycle(uint64_t count) { cycles += count; }
 
 void CPU::arm_fetch() {
-  pipeline[0] = bus->read32(regs[15], CYCLE_TYPE::NON_SEQ);
-  pipeline[1] = bus->read32(regs[15] + 4, CYCLE_TYPE::SEQ);
+  pipeline[0] = bus.read32(regs[15], CYCLE_TYPE::NON_SEQ);
+  pipeline[1] = bus.read32(regs[15] + 4, CYCLE_TYPE::SEQ);
+  cycle_type = CYCLE_TYPE::SEQ;
+  regs[15] += 8;
 }
 
-void CPU::arm_fetch_next() {
-  pipeline[1] = bus->read32(regs[15] + 4, CYCLE_TYPE::NON_SEQ);
+uint32_t CPU::arm_fetch_next() {
+  uint32_t instr = pipeline[0];
+  pipeline[0] = pipeline[1];
+  pipeline[1] = bus.read32(regs[15] + 4, CYCLE_TYPE::NON_SEQ);
+  cycle_type = CYCLE_TYPE::SEQ;
+  regs[15] += 4;
+  return instr;
 }
 
 void CPU::thumb_fetch() {
-  pipeline[0] = pipeline[1];
-  pipeline[1] = 0;
+  // pipeline[0] = bus->read16(regs[15], CYCLE_TYPE::NON_SEQ);
+  // pipeline[1] = bus->read16(regs[15] + 2, CYCLE_TYPE::SEQ);
+  cycle_type = CYCLE_TYPE::SEQ;
+  regs[15] += 4;
 }
 
 void CPU::thumb_fetch_next() {
