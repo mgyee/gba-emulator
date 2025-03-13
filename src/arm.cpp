@@ -1,4 +1,5 @@
 #include "arm.h"
+#include "cpu.h"
 #include <cstdint>
 
 ARM::ARM(CPU &cpu) : cpu(cpu) {}

@@ -1,7 +1,8 @@
 #pragma once
-
-#include "cpu.h"
 #include <cstdint>
+
+class CPU;
+
 class ARM {
 public:
   ARM(CPU &cpu);

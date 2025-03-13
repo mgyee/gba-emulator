@@ -1,8 +1,10 @@
 #pragma once
+#include "arm.h"
+#include "thumb.h"
 #include <cstdint>
+#include <memory>
 
 class Bus;
-class ARM;
 
 class CPU {
 
@@ -39,7 +41,7 @@ public:
     M = 1 << 4 | 1 << 3 | 1 << 2 | 1 << 1 | 1 << 0,
   };
 
-  CPU(Bus &bus);
+  CPU(std::unique_ptr<Bus> bus);
 
   bool eval_cond(uint32_t instr);
 
@@ -56,6 +58,10 @@ public:
 
   void thumb_fetch();
   void thumb_fetch_next();
+
+  void step(uint64_t count);
+
+  void start(const char *rom_file, const char *bios_file);
 
 private:
   // cspr[31:28] = N Z C V
@@ -94,7 +100,7 @@ private:
   CYCLE_TYPE cycle_type;
 
   uint32_t pipeline[2];
-  uint64_t cycles;
+  uint32_t cycles;
 
   MODE get_mode();
 
@@ -104,7 +110,9 @@ private:
   bool get_cc(FLAG f);
   void set_cc(FLAG f, bool val);
 
-  Bus &bus;
+  // Bus &bus;
+  std::unique_ptr<Bus> bus;
 
-  ARM *arm;
+  std::unique_ptr<ARM> arm;
+  std::unique_ptr<Thumb> thumb;
 };

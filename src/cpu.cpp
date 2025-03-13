@@ -1,8 +1,15 @@
 #include "cpu.h"
 #include "arm.h"
 #include "bus.h"
+#include <memory>
 
-CPU::CPU(Bus &bus) : bus(bus), arm(new ARM(*this)) {};
+CPU::CPU(std::unique_ptr<Bus> bus)
+    : bus(std::move(bus)), arm(std::make_unique<ARM>(*this)) {};
+
+void CPU::start(const char *rom_file, const char *bios_file) {
+  bus->load_bios(bios_file);
+  bus->load_rom(rom_file);
+}
 
 CPU::MODE CPU::get_mode() { return static_cast<MODE>(this->cpsr & CONTROL::M); }
 
@@ -12,8 +19,8 @@ void CPU::set_cpsr(uint32_t val) { cpsr = val; }
 void CPU::cycle(uint64_t count) { cycles += count; }
 
 void CPU::arm_fetch() {
-  pipeline[0] = bus.read32(regs[15], CYCLE_TYPE::NON_SEQ);
-  pipeline[1] = bus.read32(regs[15] + 4, CYCLE_TYPE::SEQ);
+  pipeline[0] = bus->read32(regs[15], CYCLE_TYPE::NON_SEQ);
+  pipeline[1] = bus->read32(regs[15] + 4, CYCLE_TYPE::SEQ);
   cycle_type = CYCLE_TYPE::SEQ;
   regs[15] += 8;
 }
@@ -21,7 +28,7 @@ void CPU::arm_fetch() {
 uint32_t CPU::arm_fetch_next() {
   uint32_t instr = pipeline[0];
   pipeline[0] = pipeline[1];
-  pipeline[1] = bus.read32(regs[15] + 4, CYCLE_TYPE::NON_SEQ);
+  pipeline[1] = bus->read32(regs[15] + 4, CYCLE_TYPE::NON_SEQ);
   cycle_type = CYCLE_TYPE::SEQ;
   regs[15] += 4;
   return instr;

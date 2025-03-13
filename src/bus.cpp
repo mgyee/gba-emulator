@@ -1,6 +1,52 @@
 #include "bus.h"
+#include <cstdio>
 
 Bus::Bus() {};
+
+bool Bus::load_bios(const char *bios_file) {
+  FILE *fp = fopen(bios_file, "rb");
+  if (!fp) {
+    return false;
+  }
+
+  if (fread(bios, sizeof(uint8_t), sizeof(bios), fp)) {
+    fclose(fp);
+    return false;
+  }
+
+  if (fclose(fp)) {
+    return false;
+  }
+
+  return true;
+}
+
+bool Bus::load_rom(const char *rom_file) {
+  FILE *fp = fopen(rom_file, "rb");
+  if (!fp) {
+    return false;
+  }
+
+  fseek(fp, 0, SEEK_END);
+
+  uint64_t file_size = ftell(fp);
+
+  fseek(fp, 0, SEEK_SET);
+
+  if (fread(rom, sizeof(uint8_t), file_size, fp)) {
+    fclose(fp);
+    return false;
+  }
+
+  if (fclose(fp)) {
+    return false;
+  }
+
+  return true;
+}
+
+// void Bus::attach_cpu(std::unique_ptr<CPU> cpu) { this->cpu = std::move(cpu);
+// }
 
 uint32_t Bus::read32(uint32_t addr, CPU::CYCLE_TYPE type) {
   switch ((addr >> 24) & 0xff) {

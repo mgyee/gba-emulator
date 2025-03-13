@@ -1,5 +1,6 @@
 #pragma once
 #include "cpu.h"
+#include <memory>
 
 #define BIOS_START (0x00000000) // BIOS - System ROM (16 KiB)
 #define BIOS_END (0x00003FFF)
@@ -33,7 +34,7 @@
 // 0E010000-0FFFFFFF   Not used
 // 10000000-FFFFFFFF   Not used
 
-class CPU;
+// class CPU;
 
 class Bus {
 public:
@@ -42,8 +43,13 @@ public:
   void write32(uint32_t addr, uint32_t data, CPU::CYCLE_TYPE type);
   uint32_t read32(uint32_t addr, CPU::CYCLE_TYPE type);
 
+  void attach_cpu(std::unique_ptr<CPU> cpu);
+
+  bool load_bios(const char *bios_file);
+  bool load_rom(const char *rom_file);
+
 private:
-  CPU *cpu;
+  // std::unique_ptr<CPU> cpu;
 
   uint8_t bios[BIOS_END - BIOS_START + 1];
   uint8_t ewram[EWRAM_END - EWRAM_START + 1];
