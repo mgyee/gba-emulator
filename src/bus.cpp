@@ -81,6 +81,8 @@ uint32_t Bus::read32(uint32_t addr, CPU::CYCLE_TYPE type) {
   }
 }
 
+uint16_t Bus::read16(uint32_t addr, CPU::CYCLE_TYPE type) { return 0; }
+
 uint32_t Bus::read_open_bus(uint32_t addr) { return 0; }
 
 uint32_t Bus::read_sram(uint32_t addr) { return 0; }

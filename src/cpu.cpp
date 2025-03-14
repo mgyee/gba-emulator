@@ -1,17 +1,121 @@
 #include "cpu.h"
-#include "arm.h"
 #include "bus.h"
+#include <iostream>
 #include <memory>
 
-CPU::CPU(std::unique_ptr<Bus> bus)
-    : bus(std::move(bus)), arm(std::make_unique<ARM>(*this)) {};
+#define NYI(str)                                                               \
+  std::cout << "NYI: " << str << std::endl;                                    \
+  return;
+CPU::CPU(std::unique_ptr<Bus> bus) : bus(std::move(bus)) {};
 
 void CPU::start(const char *rom_file, const char *bios_file) {
   bus->load_bios(bios_file);
   bus->load_rom(rom_file);
+
+  reset();
+
+  running = true;
+
+  run();
 }
 
-CPU::MODE CPU::get_mode() { return static_cast<MODE>(this->cpsr & CONTROL::M); }
+void CPU::run() {
+  while (running) {
+    cycles = 0;
+    if (cpsr & CONTROL::T) {
+    } else {
+      uint32_t instr = arm_fetch_next();
+      std::cout << std::hex << instr << std::endl;
+      if (eval_cond(instr)) {
+        if (is_bx(instr)) {
+          std::cout << "bx" << std::endl;
+          bx(instr);
+        } else if (is_bdt(instr)) {
+          NYI("bdt");
+          // bdt(instr);
+        } else if (is_bl(instr)) {
+          std::cout << "bl" << std::endl;
+          bl(instr);
+        } else if (is_swi(instr)) {
+          NYI("swi");
+          // swi(instr);
+        } else if (is_und(instr)) {
+          NYI("und");
+          // und(instr);
+        } else if (is_sdt(instr)) {
+          NYI("sdt");
+          // sdt(instr);
+        } else if (is_sds(instr)) {
+          NYI("sds");
+          // sds(instr);
+        } else if (is_mul(instr)) {
+          NYI("mul");
+          // mul(instr);
+        } else if (is_hdtr(instr)) {
+          NYI("hdtr");
+          // hdtr(instr);
+        } else if (is_hdti(instr)) {
+          NYI("hdti");
+          // hdti(instr);
+        } else if (is_psrtmrs(instr)) {
+          NYI("psrtmrs");
+          // psrtmrs(instr);
+        } else if (is_psrtmsr(instr)) {
+          NYI("psrtmsr");
+          // psrtmsr(instr);
+        } else if (is_dproc(instr)) {
+          NYI("dproc");
+          // dproc(instr);
+        } else {
+          std::cout << "unknown" << std::endl;
+          running = false;
+        }
+      } else {
+        std::cout << "skipped" << std::endl;
+        running = false;
+      }
+    }
+  }
+}
+
+void CPU::reset() {
+  regs[0] = regs[1] = regs[2] = regs[3] = regs[4] = regs[5] = regs[6] =
+      regs[7] = regs[8] = regs[9] = regs[10] = regs[11] = regs[12] = regs[14] =
+          0;
+
+  cpsr = 0;
+  bool use_bios = false;
+  if (!use_bios) {
+    regs[13] = regs_fiq[5] = regs_abt[0] = regs_und[0] = 0x03007F00;
+    regs_svc[0] = 0x03007FE0;
+    regs_irq[0] = 0x03007FA0;
+
+    regs[15] = 0x08000000;
+
+    cpsr |= MODE::SYS;
+    cpsr |= CONTROL::F;
+  } else {
+    regs[13] = regs_fiq[5] = regs_abt[0] = regs_und[0] = 0;
+    regs_svc[0] = 0;
+    regs_irq[0] = 0;
+    regs[15] = 0;
+
+    cpsr |= MODE::SVC;
+    cpsr |= CONTROL::I;
+    cpsr |= CONTROL::F;
+  }
+
+  regs_fiq[0] = regs_fiq[1] = regs_fiq[2] = regs_fiq[3] = regs_fiq[4] =
+      regs_fiq[6] = spsr_fiq = 0;
+  regs_svc[1] = spsr_svc = 0;
+  regs_abt[1] = spsr_abt = 0;
+  regs_irq[1] = spsr_irq = 0;
+  regs_und[1] = spsr_und = 0;
+
+  arm_fetch();
+}
+
+CPU::MODE CPU::get_mode() { return static_cast<MODE>(cpsr & CONTROL::M); }
 
 uint32_t CPU::get_cpsr() { return cpsr; }
 void CPU::set_cpsr(uint32_t val) { cpsr = val; }
@@ -28,15 +132,15 @@ void CPU::arm_fetch() {
 uint32_t CPU::arm_fetch_next() {
   uint32_t instr = pipeline[0];
   pipeline[0] = pipeline[1];
-  pipeline[1] = bus->read32(regs[15] + 4, CYCLE_TYPE::NON_SEQ);
+  pipeline[1] = bus->read32(regs[15], CYCLE_TYPE::SEQ);
   cycle_type = CYCLE_TYPE::SEQ;
   regs[15] += 4;
   return instr;
 }
 
 void CPU::thumb_fetch() {
-  // pipeline[0] = bus->read16(regs[15], CYCLE_TYPE::NON_SEQ);
-  // pipeline[1] = bus->read16(regs[15] + 2, CYCLE_TYPE::SEQ);
+  pipeline[0] = bus->read16(regs[15], CYCLE_TYPE::NON_SEQ);
+  pipeline[1] = bus->read16(regs[15] + 2, CYCLE_TYPE::SEQ);
   cycle_type = CYCLE_TYPE::SEQ;
   regs[15] += 4;
 }

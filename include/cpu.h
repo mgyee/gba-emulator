@@ -1,6 +1,4 @@
 #pragma once
-#include "arm.h"
-#include "thumb.h"
 #include <cstdint>
 #include <memory>
 
@@ -43,10 +41,13 @@ public:
 
   CPU(std::unique_ptr<Bus> bus);
 
+  void start(const char *rom_file, const char *bios_file);
+
+private:
   bool eval_cond(uint32_t instr);
 
-  uint32_t get_reg(uint8_t reg);
-  void set_reg(uint8_t reg, uint32_t val);
+  uint32_t get_reg(uint8_t rn);
+  void set_reg(uint8_t rn, uint32_t val);
 
   uint32_t get_cpsr();
   void set_cpsr(uint32_t val);
@@ -61,9 +62,6 @@ public:
 
   void step(uint64_t count);
 
-  void start(const char *rom_file, const char *bios_file);
-
-private:
   // cspr[31:28] = N Z C V
   enum FLAG {
     N = 1 << 31,
@@ -110,9 +108,60 @@ private:
   bool get_cc(FLAG f);
   void set_cc(FLAG f, bool val);
 
+  void reset();
+
+  bool running;
+
+  void run();
+
   // Bus &bus;
   std::unique_ptr<Bus> bus;
 
-  std::unique_ptr<ARM> arm;
-  std::unique_ptr<Thumb> thumb;
+  // std::unique_ptr<ARM> arm;
+  // std::unique_ptr<Thumb> thumb;
+
+  // ARM
+  // enum INSTR_TYPE {
+  //   ARM_BX,
+  //   ARM_BDT,
+  //   ARM_BL,
+  //   ARM_SWI,
+  //   ARM_UND,
+  //   ARM_SDT,
+  //   ARM_SDS,
+  //   ARM_MUL,
+  //   ARM_HDTR,
+  //   ARM_HDTI,
+  //   ARM_PMRS,
+  //   ARM_PMSR,
+  //   ARM_DPROC,
+  // };
+
+  bool is_bx(uint32_t instr);
+  bool is_bdt(uint32_t instr);
+  bool is_bl(uint32_t instr);
+  bool is_swi(uint32_t instr);
+  bool is_und(uint32_t instr);
+  bool is_sdt(uint32_t instr);
+  bool is_sds(uint32_t instr);
+  bool is_mul(uint32_t instr);
+  bool is_hdtr(uint32_t instr);
+  bool is_hdti(uint32_t instr);
+  bool is_psrtmrs(uint32_t instr);
+  bool is_psrtmsr(uint32_t instr);
+  bool is_dproc(uint32_t instr);
+
+  void bx(uint32_t instr);
+  void bdt(uint32_t instr);
+  void bl(uint32_t instr);
+  void swi(uint32_t instr);
+  void und(uint32_t instr);
+  void sdt(uint32_t instr);
+  void sds(uint32_t instr);
+  void mul(uint32_t instr);
+  void hdtr(uint32_t instr);
+  void hdti(uint32_t instr);
+  void psrtmrs(uint32_t instr);
+  void psrtmsr(uint32_t instr);
+  void dproc(uint32_t instr);
 };

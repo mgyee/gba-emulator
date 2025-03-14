@@ -18,22 +18,20 @@ int main(int argc, char *argv[]) {
   CPU *cpu = new CPU(std::move(bus));
   // bus->attach_cpu(std::move(cpu));
 
-  cpu->start(argv[1], "bios.bin");
-
   sdl_init();
 
-  bool running = true;
+  cpu->start(argv[1], "../bios.bin");
 
-  while (running) {
-    SDL_Event event;
-    while (SDL_PollEvent(&event)) {
-      switch (event.type) {
-      case SDL_QUIT:
-        running = false;
-        break;
-      }
-    }
-  }
+  // while (running) {
+  //   SDL_Event event;
+  //   while (SDL_PollEvent(&event)) {
+  //     switch (event.type) {
+  //     case SDL_QUIT:
+  //       running = false;
+  //       break;
+  //     }
+  //   }
+  // }
 
   sdl_quit();
 
