@@ -46,6 +46,9 @@ public:
   void write16(uint32_t addr, uint16_t data, CPU::CYCLE_TYPE type);
   uint16_t read16(uint32_t addr, CPU::CYCLE_TYPE type);
 
+  void write8(uint32_t addr, uint8_t data, CPU::CYCLE_TYPE type);
+  uint8_t read8(uint32_t addr, CPU::CYCLE_TYPE type);
+
   void attach_cpu(std::unique_ptr<CPU> cpu);
 
   bool load_bios(const char *bios_file);

@@ -1,5 +1,7 @@
+#include "bus.h"
 #include "cpu.h"
 #include <cstdint>
+#include <iostream>
 
 bool CPU::is_bx(uint32_t instr) {
   uint32_t bx_format = 0b00000001001011111111111100010000;
@@ -73,25 +75,78 @@ bool CPU::is_hdti(uint32_t instr) {
   return format == hdti_format;
 }
 
-bool CPU::is_psrtmrs(uint32_t instr) {
-  uint32_t pmrs_format = 0b00000001000011110000000000000000;
-  uint32_t mask = 0b00001111101111110000000000000000;
-  uint32_t format = instr & mask;
-  return format == pmrs_format;
+bool CPU::is_psrt(uint32_t instr) {
+  uint32_t mrs_format = 0b00000001000011110000000000000000;
+  uint32_t mrs_mask = 0b00001111101111110000000000000000;
+  uint32_t msr_format = 0b00000001001000001111000000000000;
+  uint32_t msr_mask = 0b00001101101100001111000000000000;
+  uint32_t format1 = instr & mrs_mask;
+  uint32_t format2 = instr & msr_mask;
+  return format1 == mrs_format || format2 == msr_format;
 }
 
-bool CPU::is_psrtmsr(uint32_t instr) {
-  uint32_t pmrs_format = 0b00000001001000001111000000000000;
-  uint32_t mask = 0b00001101101100001111000000000000;
-  uint32_t format = instr & mask;
-  return format == pmrs_format;
-}
+// bool CPU::is_psrtmsr(uint32_t instr) {
+//   uint32_t pmrs_format = 0b00000001001000001111000000000000;
+//   uint32_t mask = 0b00001101101100001111000000000000;
+//   uint32_t format = instr & mask;
+//   return format == pmrs_format;
+// }
 
 bool CPU::is_dproc(uint32_t instr) {
   uint32_t dproc_format = 0b00000000000000000000000000000000;
   uint32_t mask = 0b00001100000000000000000000000000;
   uint32_t format = instr & mask;
   return format == dproc_format;
+}
+
+bool CPU::barrel_shift(uint32_t &val, SHIFT shift_type, uint8_t shift_amount,
+                       bool shift_by_reg) {
+  bool carry_out = false;
+  switch (shift_type) {
+  case LSL:
+    if (shift_amount == 0) {
+      carry_out = (cpsr & C) == C;
+    } else if (shift_amount == 32) {
+      carry_out = val & 0x1;
+      val = 0;
+    } else {
+      carry_out = shift_amount > 32 ? 0 : (val << (shift_amount - 1)) >> 31;
+      val = shift_amount > 32 ? 0 : val << shift_amount;
+    }
+  case LSR:
+    if ((!shift_by_reg && shift_amount == 0) || shift_amount == 32) {
+      carry_out = val >> 31;
+      val = 0;
+    } else {
+      carry_out = shift_amount > 32 ? 0 : (val >> (shift_amount - 1)) & 0x1;
+      val = shift_amount > 32 ? 0 : val >> shift_amount;
+    }
+
+  case ASR:
+    if (!shift_by_reg && shift_amount == 0) {
+      carry_out = val >> 31;
+      val = carry_out ? 0xffffffff : 0;
+    } else {
+      carry_out = shift_amount > 31
+                      ? val >> 31
+                      : (static_cast<int32_t>(val) >> (shift_amount - 1)) & 0x1;
+      val = shift_amount > 31 ? val >> 31 ? 0xffffffff : 0
+                              : static_cast<int32_t>(val) >> shift_amount;
+    }
+  case ROR:
+    if (!shift_by_reg && shift_amount == 0) {
+      bool carry_in = (cpsr & C) == C;
+      carry_out = val & 0x1;
+      val = val >> 1 | carry_in << 31;
+    } else {
+      carry_out = val & 0x1;
+      shift_amount %= 32;
+      val = (val >> shift_amount) | (val << (32 - shift_amount));
+    }
+  default:
+    break;
+  }
+  return carry_out;
 }
 
 void CPU::bx(uint32_t instr) {
@@ -170,6 +225,126 @@ void CPU::bl(uint32_t instr) {
   arm_fetch(); // 1N + 1S, next fetch -> +1S
 }
 
+void CPU::sdt(uint32_t instr) {
+  bool i = (instr >> 25) & 0x1; // reg/imm
+  bool p = (instr >> 24) & 0x1; // pre/post
+  bool u = (instr >> 23) & 0x1; // up/down
+  bool b = (instr >> 22) & 0x1; // byte/word
+  bool t = (instr >> 21) & 0x1; // force non-priv
+  bool w = (instr >> 21) & 0x1; // writeback
+  bool l = (instr >> 20) & 0x1; // load/store
+  uint8_t rn = (instr >> 16) & 0xf;
+  uint8_t rd = (instr >> 12) & 0xf;
+
+  uint32_t offset;
+
+  if (i) {
+    uint8_t shift_amount = (instr >> 7) & 0x1f;
+    SHIFT shift_type = static_cast<SHIFT>((instr >> 5) & 0x3);
+    uint8_t rm = instr & 0xf;
+
+    offset = get_reg(rm);
+    barrel_shift(offset, shift_type, shift_amount, false);
+  } else {
+    offset = instr & 0xfff;
+  }
+
+  if (!u) {
+    offset = -offset;
+  }
+
+  uint32_t addr = get_reg(rn) + (p ? offset : 0);
+
+  if (l) {
+    // cycle 1I
+    // read does 1N
+    uint32_t val;
+    if (b) {
+      val = bus->read8(addr, CYCLE_TYPE::NON_SEQ);
+    } else {
+      barrel_shift(addr, SHIFT::ROR, (addr & 0x3) * 8, true);
+      val = bus->read32(addr, CYCLE_TYPE::NON_SEQ);
+    }
+    set_reg(rd, val);
+  } else {
+    // write does 1N
+    uint32_t val = get_reg(rd) + ((rd == 15) << 2);
+    if (rd == 15) {
+      val += 4;
+    }
+    if (b) {
+      bus->write8(addr, val, CYCLE_TYPE::NON_SEQ);
+    } else {
+      bus->write32(addr, val, CYCLE_TYPE::NON_SEQ);
+    }
+    cycle_type = CYCLE_TYPE::NON_SEQ; // next fetch is 1N
+  }
+
+  if (!p || w) {
+    if (!l || !(rn == rd)) {
+      set_reg(rn, get_reg(rd) + ((rd == 15) << 2) + offset);
+    }
+  }
+
+  if (l && (rd == 15)) {
+    arm_fetch(); // 1N + 1S
+  }
+}
+
+void CPU::psrt(uint32_t instr) {
+  bool i = (instr >> 25) & 0x1;      // imm/reg
+  bool psr = (instr >> 22) & 0x1;    // spsr/cpsr
+  bool opcode = (instr >> 21) & 0x1; // msr/mrs
+
+  if (opcode) {
+    bool f = (instr >> 19) & 0x1; // flag
+    bool s = (instr >> 18) & 0x1; // status
+    bool x = (instr >> 17) & 0x1; // extension
+    bool c = (instr >> 16) & 0x1; // control
+    uint32_t op;
+    if (i) {
+      uint8_t imm = instr & 0xff;
+      uint8_t shift_amount = (instr >> 8) & 0xf;
+      op = imm;
+      barrel_shift(op, SHIFT::ROR, shift_amount * 2, true);
+    } else {
+      uint8_t rm = instr & 0xf;
+      op = get_reg(rm);
+    }
+
+    uint32_t mask = 0;
+    if (f) {
+      mask |= 0xff000000;
+    }
+    if (s) {
+      mask |= 0x00ff0000;
+    }
+    if (x) {
+      mask |= 0x0000ff00;
+    }
+    if (c) {
+      mask |= 0x000000ff;
+    }
+
+    if (psr) {
+      uint32_t psr = get_psr();
+      psr &= ~mask;
+      psr |= op & mask;
+      set_psr(psr);
+    } else {
+      cpsr &= ~mask;
+      cpsr |= op & mask;
+    }
+  } else {
+    uint8_t rd = (instr >> 12) & 0xf;
+    if (psr) {
+      set_reg(rd, get_psr());
+    } else {
+      set_reg(rd, cpsr);
+    }
+  }
+}
+
 void CPU::dproc(uint32_t instr) {
   bool i = (instr >> 25) & 0x1; // imm/reg
   uint8_t opcode = (instr >> 21) & 0xf;
@@ -180,5 +355,112 @@ void CPU::dproc(uint32_t instr) {
   uint32_t op1 = get_reg(rn);
   uint32_t op2;
 
+  bool carry = get_cc(C);
+
   bool r15_transfer = (rd == 15);
+
+  if (i) {
+    uint8_t imm = instr & 0xff;
+    uint8_t shift_amount = (instr >> 8) & 0xf;
+    op2 = imm;
+    carry = barrel_shift(op2, SHIFT::ROR, shift_amount * 2, true);
+  } else {
+    uint8_t rm = instr & 0xf;
+    op2 = get_reg(rm);
+    SHIFT shift_type = static_cast<SHIFT>((instr >> 5) & 0x3);
+    bool shift_by_reg = (instr >> 4) & 0x1;
+
+    if (shift_by_reg) {
+      uint8_t rs = (instr >> 8) & 0xf;
+      uint8_t shift_amount = get_reg(rs) & 0xf;
+      if (rn == 15) {
+        op1 += 4;
+      }
+      if (rm == 15) {
+        op2 += 4;
+      }
+      carry = barrel_shift(op2, shift_type, shift_amount, true);
+    } else {
+      uint8_t amount = (instr >> 7) & 0x1f;
+      carry = barrel_shift(op2, shift_type, amount, false);
+    }
+
+    // clock 1I
+  }
+
+  switch (opcode) {
+  case DPROC_OPCODE::AND:
+    std::cout << "AND" << std::endl;
+    break;
+  case DPROC_OPCODE::EOR:
+    std::cout << "EOR" << std::endl;
+    break;
+  case DPROC_OPCODE::SUB:
+    std::cout << "SUB" << std::endl;
+    break;
+  case DPROC_OPCODE::RSB:
+    std::cout << "RSB" << std::endl;
+    break;
+  case DPROC_OPCODE::ADD: {
+    std::cout << "ADD" << std::endl;
+    uint32_t res = op1 + op2;
+    if (s) {
+      set_cc(FLAG::N, res >> 31);
+      set_cc(FLAG::Z, res == 0);
+      set_cc(FLAG::C, (op1 >> 31) + (op2 >> 31) > (res >> 31));
+      set_cc(FLAG::V,
+             ((op1 >> 31) == (op2 >> 31)) && (op1 >> 31 != (res >> 31)));
+    }
+    set_reg(rd, res);
+    break;
+  }
+  case DPROC_OPCODE::ADC:
+    std::cout << "ADC" << std::endl;
+    break;
+  case DPROC_OPCODE::SBC:
+    std::cout << "SBC" << std::endl;
+    break;
+  case DPROC_OPCODE::RSC:
+    std::cout << "RSC" << std::endl;
+    break;
+  case DPROC_OPCODE::TST:
+    std::cout << "TST" << std::endl;
+    break;
+  case DPROC_OPCODE::TEQ:
+    std::cout << "TEQ" << std::endl;
+    break;
+  case DPROC_OPCODE::CMP:
+    std::cout << "CMP" << std::endl;
+    break;
+  case DPROC_OPCODE::CMN:
+    std::cout << "CMN" << std::endl;
+    break;
+  case DPROC_OPCODE::ORR:
+    std::cout << "ORR" << std::endl;
+    break;
+  case DPROC_OPCODE::MOV:
+    std::cout << "MOV" << std::endl;
+    if (s) {
+      set_cc(FLAG::N, op2 >> 31);
+      set_cc(FLAG::Z, op2 == 0);
+      set_cc(FLAG::C, carry);
+      set_cc(FLAG::V, false);
+    }
+    set_reg(rd, op2);
+    break;
+  case DPROC_OPCODE::BIC:
+    std::cout << "BIC" << std::endl;
+    break;
+  case DPROC_OPCODE::MVN:
+    std::cout << "MVN" << std::endl;
+    break;
+  default:
+    break;
+  }
+
+  if (r15_transfer) {
+    arm_fetch(); // 1N + 1S
+    if (s)
+      cpsr = get_psr();
+  }
 }

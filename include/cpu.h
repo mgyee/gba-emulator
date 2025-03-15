@@ -43,6 +43,8 @@ public:
 
   void start(const char *rom_file, const char *bios_file);
 
+  CYCLE_TYPE get_last_cycle_type() { return cycle_type; }
+
 private:
   bool eval_cond(uint32_t instr);
 
@@ -136,6 +138,35 @@ private:
   //   ARM_PMSR,
   //   ARM_DPROC,
   // };
+  //
+  enum DPROC_OPCODE {
+    AND = 0,
+    EOR = 1,
+    SUB = 2,
+    RSB = 3,
+    ADD = 4,
+    ADC = 5,
+    SBC = 6,
+    RSC = 7,
+    TST = 8,
+    TEQ = 9,
+    CMP = 10,
+    CMN = 11,
+    ORR = 12,
+    MOV = 13,
+    BIC = 14,
+    MVN = 15,
+  };
+
+  enum SHIFT {
+    LSL = 0,
+    LSR = 1,
+    ASR = 2,
+    ROR = 3,
+  };
+
+  bool barrel_shift(uint32_t &val, SHIFT shift_type, uint8_t shift_amount,
+                    bool shift_by_reg);
 
   bool is_bx(uint32_t instr);
   bool is_bdt(uint32_t instr);
@@ -147,8 +178,7 @@ private:
   bool is_mul(uint32_t instr);
   bool is_hdtr(uint32_t instr);
   bool is_hdti(uint32_t instr);
-  bool is_psrtmrs(uint32_t instr);
-  bool is_psrtmsr(uint32_t instr);
+  bool is_psrt(uint32_t instr);
   bool is_dproc(uint32_t instr);
 
   void bx(uint32_t instr);
@@ -161,7 +191,6 @@ private:
   void mul(uint32_t instr);
   void hdtr(uint32_t instr);
   void hdti(uint32_t instr);
-  void psrtmrs(uint32_t instr);
-  void psrtmsr(uint32_t instr);
+  void psrt(uint32_t instr);
   void dproc(uint32_t instr);
 };

@@ -25,17 +25,17 @@ void CPU::run() {
     if (cpsr & CONTROL::T) {
     } else {
       uint32_t instr = arm_fetch_next();
-      std::cout << std::hex << instr << std::endl;
+      std::cout << std::hex << regs[15] - 8 << ": " << instr << std::endl;
       if (eval_cond(instr)) {
         if (is_bx(instr)) {
           std::cout << "bx" << std::endl;
-          bx(instr);
+          bx(instr); // NOTE: DONE
         } else if (is_bdt(instr)) {
           NYI("bdt");
           // bdt(instr);
         } else if (is_bl(instr)) {
           std::cout << "bl" << std::endl;
-          bl(instr);
+          bl(instr); // NOTE: DONE
         } else if (is_swi(instr)) {
           NYI("swi");
           // swi(instr);
@@ -43,8 +43,8 @@ void CPU::run() {
           NYI("und");
           // und(instr);
         } else if (is_sdt(instr)) {
-          NYI("sdt");
-          // sdt(instr);
+          std::cout << "sdt" << std::endl;
+          sdt(instr); // NOTE: DONE
         } else if (is_sds(instr)) {
           NYI("sds");
           // sds(instr);
@@ -57,15 +57,13 @@ void CPU::run() {
         } else if (is_hdti(instr)) {
           NYI("hdti");
           // hdti(instr);
-        } else if (is_psrtmrs(instr)) {
-          NYI("psrtmrs");
-          // psrtmrs(instr);
-        } else if (is_psrtmsr(instr)) {
-          NYI("psrtmsr");
-          // psrtmsr(instr);
+        } else if (is_psrt(instr)) {
+          std::cout << "psrt" << std::endl;
+          psrt(instr); // NOTE: DONE
         } else if (is_dproc(instr)) {
-          NYI("dproc");
-          // dproc(instr);
+          // NYI("dproc");
+          std::cout << "dproc" << std::endl;
+          dproc(instr); // NOTE: ONLY MUL
         } else {
           std::cout << "unknown" << std::endl;
           running = false;
@@ -132,7 +130,7 @@ void CPU::arm_fetch() {
 uint32_t CPU::arm_fetch_next() {
   uint32_t instr = pipeline[0];
   pipeline[0] = pipeline[1];
-  pipeline[1] = bus->read32(regs[15], CYCLE_TYPE::SEQ);
+  pipeline[1] = bus->read32(regs[15] + 4, CYCLE_TYPE::SEQ);
   cycle_type = CYCLE_TYPE::SEQ;
   regs[15] += 4;
   return instr;
@@ -347,10 +345,10 @@ void CPU::set_reg(uint8_t reg, uint32_t val) {
   case 0xF:
     if (cpsr & CONTROL::T) {
       regs[15] = val & ~0x1;
-      thumb_fetch();
+      // thumb_fetch();
     } else {
       regs[15] = val & ~0x3;
-      arm_fetch();
+      // arm_fetch();
     }
     break;
   default:
@@ -404,7 +402,7 @@ void CPU::set_psr(uint32_t val) {
   }
 }
 
-bool CPU::get_cc(FLAG f) { return CPU::get_psr() & f; }
+bool CPU::get_cc(FLAG f) { return get_psr() & f; }
 void CPU::set_cc(FLAG f, bool val) {
   uint32_t psr = get_psr();
   if (val) {
