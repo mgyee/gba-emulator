@@ -228,6 +228,10 @@ void CPU::bl(uint32_t instr) {
   arm_fetch(); // 1N + 1S, next fetch -> +1S
 }
 
+void CPU::swi(uint32_t instr) {}
+
+void CPU::und(uint32_t instr) {}
+
 void CPU::sdt(uint32_t instr) {
   bool i = (instr >> 25) & 0x1; // reg/imm
   bool p = (instr >> 24) & 0x1; // pre/post
@@ -294,6 +298,10 @@ void CPU::sdt(uint32_t instr) {
     arm_fetch(); // 1N + 1S
   }
 }
+
+void CPU::sds(uint32_t instr) {}
+
+void CPU::mul(uint32_t instr) {}
 
 void CPU::hdtri(uint32_t instr) {
   bool p = (instr >> 24) & 0x1; // pre/post
@@ -544,12 +552,40 @@ void CPU::dproc(uint32_t instr) {
     break;
   case DPROC_OPCODE::ADC:
     std::cout << "ADC" << std::endl;
+    res = op1 + op2 + get_cc(FLAG::C);
+    if (s) {
+      set_cc(FLAG::N, res >> 31);
+      set_cc(FLAG::Z, res == 0);
+      set_cc(FLAG::C, (op1 >> 31) + (op2 >> 31) + carry > (res >> 31));
+      set_cc(FLAG::V,
+             ((op1 >> 31) == (op2 >> 31)) && (op1 >> 31 != (res >> 31)));
+    }
+    set_reg(rd, res);
     break;
   case DPROC_OPCODE::SBC:
     std::cout << "SBC" << std::endl;
+    res = op1 - op2 - !get_cc(FLAG::C);
+    if (s) {
+      set_cc(FLAG::N, res >> 31);
+      set_cc(FLAG::Z, res == 0);
+      set_cc(FLAG::C, static_cast<uint64_t>(op1) >=
+                          static_cast<uint64_t>(op2) + !get_cc(FLAG::C));
+      set_cc(FLAG::V,
+             ((op1 >> 31) != (op2 >> 31)) && ((op1 >> 31) != (res >> 31)));
+    }
+    set_reg(rd, res);
     break;
   case DPROC_OPCODE::RSC:
     std::cout << "RSC" << std::endl;
+    res = op2 - op1 - !get_cc(FLAG::C);
+    if (s) {
+      set_cc(FLAG::N, res >> 31);
+      set_cc(FLAG::Z, res == 0);
+      set_cc(FLAG::C, static_cast<uint64_t>(op2) >=
+                          static_cast<uint64_t>(op1) + !get_cc(FLAG::C));
+      set_cc(FLAG::V,
+             ((op2 >> 31) != (op1 >> 31)) && ((op2 >> 31) != (res >> 31)));
+    }
     break;
   case DPROC_OPCODE::TST:
     std::cout << "TST" << std::endl;
@@ -573,9 +609,25 @@ void CPU::dproc(uint32_t instr) {
     break;
   case DPROC_OPCODE::CMP:
     std::cout << "CMP" << std::endl;
+    res = op1 - op2;
+    if (s) {
+      set_cc(FLAG::N, res >> 31);
+      set_cc(FLAG::Z, res == 0);
+      set_cc(FLAG::C, op1 >= op2);
+      set_cc(FLAG::V,
+             ((op1 >> 31) != (op2 >> 31)) && ((op1 >> 31) != (res >> 31)));
+    }
     break;
   case DPROC_OPCODE::CMN:
     std::cout << "CMN" << std::endl;
+    res = op1 + op2;
+    if (s) {
+      set_cc(FLAG::N, res >> 31);
+      set_cc(FLAG::Z, res == 0);
+      set_cc(FLAG::C, (op1 >> 31) + (op2 >> 31) > (res >> 31));
+      set_cc(FLAG::V,
+             ((op1 >> 31) == (op2 >> 31)) && (op1 >> 31 != (res >> 31)));
+    }
     break;
   case DPROC_OPCODE::ORR:
     std::cout << "ORR" << std::endl;

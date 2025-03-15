@@ -177,7 +177,6 @@ private:
   bool is_sds(uint32_t instr);
   bool is_mul(uint32_t instr);
   bool is_hdtri(uint32_t instr);
-  // bool is_hdti(uint32_t instr);
   bool is_psrt(uint32_t instr);
   bool is_dproc(uint32_t instr);
 
@@ -190,7 +189,6 @@ private:
   void sds(uint32_t instr);
   void mul(uint32_t instr);
   void hdtri(uint32_t instr);
-  // void hdti(uint32_t instr);
   void psrt(uint32_t instr);
   void dproc(uint32_t instr);
 };
