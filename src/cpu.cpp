@@ -25,7 +25,7 @@ void CPU::run() {
     if (cpsr & CONTROL::T) {
     } else {
       uint32_t instr = arm_fetch_next();
-      std::cout << std::hex << regs[15] - 8 << ": " << instr << std::endl;
+      std::cout << std::hex << regs[15] - 8 << ": ";
       if (eval_cond(instr)) {
         if (is_bx(instr)) {
           std::cout << "bx" << std::endl;
@@ -59,14 +59,18 @@ void CPU::run() {
           psrt(instr); // NOTE: DONE
         } else if (is_dproc(instr)) {
           // NYI("dproc");
-          std::cout << "dproc" << std::endl;
-          dproc(instr); // NOTE: ONLY MUL
+          std::cout << "dproc: ";
+          dproc(instr); // NOTE: ONLY
         } else {
           std::cout << "unknown" << std::endl;
           running = false;
         }
       } else {
         std::cout << "skipped" << std::endl;
+        running = false;
+      }
+
+      if (std::cin.get() == 'q') {
         running = false;
       }
     }
