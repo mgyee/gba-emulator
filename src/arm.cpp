@@ -61,19 +61,22 @@ bool CPU::is_mul(uint32_t instr) {
   return format == mul_format || format == mull_format;
 }
 
-bool CPU::is_hdtr(uint32_t instr) {
+bool CPU::is_hdtri(uint32_t instr) {
   uint32_t hdtr_format = 0b00000000000000000000000010010000;
-  uint32_t mask = 0b00001110010000000000111110010000;
-  uint32_t format = instr & mask;
-  return format == hdtr_format;
+  uint32_t hdtr_mask = 0b00001110010000000000111110010000;
+  uint32_t format1 = instr & hdtr_mask;
+  uint32_t hdti_format = 0b00000000010000000000000010010000;
+  uint32_t hdti_mask = 0b00001110010000000000000010010000;
+  uint32_t format2 = instr & hdti_mask;
+  return format1 == hdtr_format || format2 == hdti_format;
 }
 
-bool CPU::is_hdti(uint32_t instr) {
-  uint32_t hdti_format = 0b00000000010000000000000010010000;
-  uint32_t mask = 0b00001110010000000000000010010000;
-  uint32_t format = instr & mask;
-  return format == hdti_format;
-}
+// bool CPU::is_hdti(uint32_t instr) {
+//   uint32_t hdti_format = 0b00000000010000000000000010010000;
+//   uint32_t mask = 0b00001110010000000000000010010000;
+//   uint32_t format = instr & mask;
+//   return format == hdti_format;
+// }
 
 bool CPU::is_psrt(uint32_t instr) {
   uint32_t mrs_format = 0b00000001000011110000000000000000;
@@ -256,7 +259,6 @@ void CPU::sdt(uint32_t instr) {
   uint32_t addr = get_reg(rn) + (p ? offset : 0);
 
   if (l) {
-    // cycle 1I
     // read does 1N
     uint32_t val;
     if (b) {
@@ -280,11 +282,103 @@ void CPU::sdt(uint32_t instr) {
     cycle_type = CYCLE_TYPE::NON_SEQ; // next fetch is 1N
   }
 
-  if (!p || w) {
+  if (!p || (p && w)) {
     if (!l || !(rn == rd)) {
       set_reg(rn, get_reg(rd) + ((rd == 15) << 2) + offset);
     }
   }
+
+  // cycle 1I
+
+  if (l && (rd == 15)) {
+    arm_fetch(); // 1N + 1S
+  }
+}
+
+void CPU::hdtri(uint32_t instr) {
+  bool p = (instr >> 24) & 0x1; // pre/post
+  bool u = (instr >> 23) & 0x1; // up/down
+  bool i = (instr >> 22) & 0x1; // imm/reg
+  bool w = (instr >> 21) & 0x1; // writeback
+  bool l = (instr >> 20) & 0x1; // load/store
+  uint8_t rn = (instr >> 16) & 0xf;
+  uint8_t rd = (instr >> 12) & 0xf;
+
+  uint8_t opcode = (instr >> 5) & 0x3;
+  uint32_t offset;
+
+  if (i) {
+    uint8_t offset_hi = (instr >> 8) & 0xf;
+    uint8_t offset_lo = instr & 0xf;
+    offset = (offset_hi << 4) | offset_lo;
+  } else {
+    uint8_t rm = instr & 0xf;
+    offset = get_reg(rm);
+    // barrel_shift(offset, SHIFT::ROR, (offset & 0x3) * 8, true);
+  }
+
+  if (!u) {
+    offset = -offset;
+  }
+
+  uint32_t addr = get_reg(rn) + (p ? offset : 0);
+
+  uint32_t val;
+  switch (opcode) {
+  case 0x1:
+    if (l) {
+      if (addr & 1) {
+        val = bus->read16(addr, CYCLE_TYPE::NON_SEQ);
+        barrel_shift(val, SHIFT::ROR, 8, true);
+      } else {
+        val = bus->read16(addr, CYCLE_TYPE::NON_SEQ);
+      }
+      set_reg(rd, val);
+    } else {
+      bus->write16(addr, get_reg(rd), CYCLE_TYPE::NON_SEQ);
+      cycle_type = CYCLE_TYPE::NON_SEQ; // next fetch is 1N
+    }
+    break;
+  case 0x2:
+    if (l) {
+      val = bus->read8(addr, CYCLE_TYPE::NON_SEQ);
+      if (val & 0x80) {
+        val |= 0xffffff00;
+      }
+      set_reg(rd, val);
+    } else {
+      cycle_type = CYCLE_TYPE::NON_SEQ; // next fetch is 1N
+    }
+    break;
+  case 0x3:
+    if (l) {
+      if (addr & 1) {
+        val = bus->read8(addr, CYCLE_TYPE::NON_SEQ);
+        if (val & 0x80) {
+          val |= 0xffffff00;
+        }
+      } else {
+        val = bus->read16(addr, CYCLE_TYPE::NON_SEQ);
+        if (val & 0x8000) {
+          val |= 0xffff0000;
+        }
+      }
+      set_reg(rd, val);
+    } else {
+      cycle_type = CYCLE_TYPE::NON_SEQ; // next fetch is 1N
+    }
+    break;
+  default:
+    break;
+  }
+
+  if (!p || (p && w)) {
+    if (!l || !(rn == rd)) {
+      set_reg(rn, get_reg(rn) + ((rd == 15) << 2) + offset);
+    }
+  }
+
+  // cycle 1I
 
   if (l && (rd == 15)) {
     arm_fetch(); // 1N + 1S

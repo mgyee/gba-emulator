@@ -51,12 +51,9 @@ void CPU::run() {
         } else if (is_mul(instr)) {
           NYI("mul");
           // mul(instr);
-        } else if (is_hdtr(instr)) {
-          NYI("hdtr");
-          // hdtr(instr);
-        } else if (is_hdti(instr)) {
-          NYI("hdti");
-          // hdti(instr);
+        } else if (is_hdtri(instr)) {
+          std::cout << "hdtri" << std::endl;
+          hdtri(instr);
         } else if (is_psrt(instr)) {
           std::cout << "psrt" << std::endl;
           psrt(instr); // NOTE: DONE
