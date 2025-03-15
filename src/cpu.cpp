@@ -126,7 +126,7 @@ void CPU::arm_fetch() {
   pipeline[0] = bus->read32(regs[15], CYCLE_TYPE::NON_SEQ);
   pipeline[1] = bus->read32(regs[15] + 4, CYCLE_TYPE::SEQ);
   cycle_type = CYCLE_TYPE::SEQ;
-  regs[15] += 8;
+  regs[15] += 4;
 }
 
 uint32_t CPU::arm_fetch_next() {

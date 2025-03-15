@@ -169,3 +169,16 @@ void CPU::bl(uint32_t instr) {
 
   arm_fetch(); // 1N + 1S, next fetch -> +1S
 }
+
+void CPU::dproc(uint32_t instr) {
+  bool i = (instr >> 25) & 0x1; // imm/reg
+  uint8_t opcode = (instr >> 21) & 0xf;
+  bool s = (instr >> 20) & 0x1; // set
+  uint8_t rn = (instr >> 16) & 0xf;
+  uint8_t rd = (instr >> 12) & 0xf;
+
+  uint32_t op1 = get_reg(rn);
+  uint32_t op2;
+
+  bool r15_transfer = (rd == 15);
+}
