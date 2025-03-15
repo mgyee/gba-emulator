@@ -1,6 +1,5 @@
 #pragma once
 #include <cstdint>
-#include <memory>
 
 class Bus;
 
@@ -12,6 +11,19 @@ public:
     SEQ,
   };
 
+  CPU();
+  ~CPU();
+
+  void set_bus(Bus *bus);
+
+  void start(const char *rom_file, const char *bios_file);
+
+  CYCLE_TYPE get_last_cycle_type() { return cycle_type; }
+
+  uint32_t get_reg(uint8_t rn);
+  void set_reg(uint8_t rn, uint32_t val);
+
+private:
   // instr[31:28]
   enum COND {
     EQ = 0x0,
@@ -39,17 +51,7 @@ public:
     M = 1 << 4 | 1 << 3 | 1 << 2 | 1 << 1 | 1 << 0,
   };
 
-  CPU(std::unique_ptr<Bus> bus);
-
-  void start(const char *rom_file, const char *bios_file);
-
-  CYCLE_TYPE get_last_cycle_type() { return cycle_type; }
-
-private:
   bool eval_cond(uint32_t instr);
-
-  uint32_t get_reg(uint8_t rn);
-  void set_reg(uint8_t rn, uint32_t val);
 
   uint32_t get_cpsr();
   void set_cpsr(uint32_t val);
@@ -116,8 +118,7 @@ private:
 
   void run();
 
-  // Bus &bus;
-  std::unique_ptr<Bus> bus;
+  Bus *bus;
 
   // std::unique_ptr<ARM> arm;
   // std::unique_ptr<Thumb> thumb;

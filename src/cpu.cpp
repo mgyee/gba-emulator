@@ -1,12 +1,17 @@
 #include "cpu.h"
 #include "bus.h"
 #include <iostream>
-#include <memory>
+#include <thread>
 
 #define NYI(str)                                                               \
   std::cout << "NYI: " << str << std::endl;                                    \
   return;
-CPU::CPU(std::unique_ptr<Bus> bus) : bus(std::move(bus)) {};
+
+CPU::CPU() {};
+
+CPU::~CPU() { delete bus; };
+
+void CPU::set_bus(Bus *bus) { this->bus = bus; }
 
 void CPU::start(const char *rom_file, const char *bios_file) {
   bus->load_bios(bios_file);
@@ -21,18 +26,22 @@ void CPU::start(const char *rom_file, const char *bios_file) {
 
 void CPU::run() {
   while (running) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
     cycles = 0;
     if (cpsr & CONTROL::T) {
     } else {
       uint32_t instr = arm_fetch_next();
-      std::cout << std::hex << regs[15] - 8 << ": ";
+      if (instr == 0)
+        break;
+      std::cout << std::hex << regs[15] - 8 << ": " << std::hex << instr
+                << ": ";
       if (eval_cond(instr)) {
         if (is_bx(instr)) {
           std::cout << "bx" << std::endl;
           bx(instr); // NOTE: DONE
         } else if (is_bdt(instr)) {
-          NYI("bdt");
-          // bdt(instr);
+          std::cout << "bdt" << std::endl;
+          bdt(instr);
         } else if (is_bl(instr)) {
           std::cout << "bl" << std::endl;
           bl(instr); // NOTE: DONE
@@ -60,19 +69,19 @@ void CPU::run() {
         } else if (is_dproc(instr)) {
           // NYI("dproc");
           std::cout << "dproc: ";
-          dproc(instr); // NOTE: ONLY
+          dproc(instr); // NOTE: DONE
         } else {
           std::cout << "unknown" << std::endl;
           running = false;
         }
       } else {
         std::cout << "skipped" << std::endl;
-        running = false;
+        // running = false;
       }
 
-      if (std::cin.get() == 'q') {
-        running = false;
-      }
+      // if (std::cin.get() == 'q') {
+      //   running = false;
+      // }
     }
   }
 }
@@ -415,7 +424,7 @@ void CPU::set_cc(FLAG f, bool val) {
 }
 
 bool CPU::eval_cond(uint32_t instr) {
-  uint8_t cond = (instr >> 28) & 0xf;
+  COND cond = static_cast<COND>((instr >> 28) & 0xf);
   switch (cond) {
   case EQ:
     return get_cc(Z);

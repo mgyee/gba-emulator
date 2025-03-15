@@ -13,10 +13,11 @@ int main(int argc, char *argv[]) {
     return 1;
   }
 
-  // Bus *bus = new Bus();
-  std::unique_ptr<Bus> bus = std::make_unique<Bus>();
-  CPU *cpu = new CPU(std::move(bus));
-  // bus->attach_cpu(std::move(cpu));
+  CPU *cpu = new CPU();
+
+  Bus *bus = new Bus(*cpu);
+
+  cpu->set_bus(bus);
 
   sdl_init();
 
@@ -34,6 +35,7 @@ int main(int argc, char *argv[]) {
   // }
 
   sdl_quit();
+  delete cpu;
 
   return 0;
 }

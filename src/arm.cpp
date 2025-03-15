@@ -116,6 +116,7 @@ bool CPU::barrel_shift(uint32_t &val, SHIFT shift_type, uint8_t shift_amount,
       carry_out = shift_amount > 32 ? 0 : (val << (shift_amount - 1)) >> 31;
       val = shift_amount > 32 ? 0 : val << shift_amount;
     }
+    break;
   case LSR:
     if ((!shift_by_reg && shift_amount == 0) || shift_amount == 32) {
       carry_out = val >> 31;
@@ -124,7 +125,7 @@ bool CPU::barrel_shift(uint32_t &val, SHIFT shift_type, uint8_t shift_amount,
       carry_out = shift_amount > 32 ? 0 : (val >> (shift_amount - 1)) & 0x1;
       val = shift_amount > 32 ? 0 : val >> shift_amount;
     }
-
+    break;
   case ASR:
     if (!shift_by_reg && shift_amount == 0) {
       carry_out = val >> 31;
@@ -136,6 +137,7 @@ bool CPU::barrel_shift(uint32_t &val, SHIFT shift_type, uint8_t shift_amount,
       val = shift_amount > 31 ? val >> 31 ? 0xffffffff : 0
                               : static_cast<int32_t>(val) >> shift_amount;
     }
+    break;
   case ROR:
     if (!shift_by_reg && shift_amount == 0) {
       bool carry_in = (cpsr & C) == C;
@@ -146,6 +148,7 @@ bool CPU::barrel_shift(uint32_t &val, SHIFT shift_type, uint8_t shift_amount,
       shift_amount %= 32;
       val = (val >> shift_amount) | (val << (32 - shift_amount));
     }
+    break;
   default:
     break;
   }
@@ -182,8 +185,7 @@ void CPU::bdt(uint32_t instr) {
   uint8_t rn = (instr >> 16) & 0xf;
   uint16_t reg_list = instr & 0xffff;
 
-  uint32_t base = get_reg(rn);
-  uint32_t offset = u ? 4 : -4;
+  uint32_t addr = get_reg(rn);
 
   uint32_t bank = 0;
 
@@ -198,11 +200,69 @@ void CPU::bdt(uint32_t instr) {
     }
   }
 
-  if (reg_list == 0) {
-    reg_list |= (1 << 0xf);
-    set_reg(rn, base + (16 * offset));
-    r15_transfer = true;
+  uint8_t first_reg = 0;
+  uint8_t size = 0;
+
+  if (reg_list != 0) {
+    for (int i = 15; i >= 0; i--) {
+      if (~reg_list & (1 << i)) {
+        continue;
+      }
+      first_reg = i;
+      size += 4;
+    }
   } else {
+    reg_list = (1 << 0xf);
+    r15_transfer = true;
+    size = 64;
+  }
+
+  uint32_t addr_copy = addr;
+
+  if (!u) {
+    p = !p;
+    addr -= size;
+    addr_copy -= size;
+  } else {
+    addr_copy += size;
+  }
+
+  cycle_type = CYCLE_TYPE::NON_SEQ; // reads/writes start as NON_SEQ
+
+  for (int i = first_reg; i < 16; i++) {
+    if (!(reg_list & (1 << i))) {
+      continue;
+    }
+    if (p)
+      addr += 4;
+    if (l) {
+      uint32_t val = bus->read32(addr, CYCLE_TYPE::SEQ);
+      if (w && i == first_reg) {
+        set_reg(rn, addr_copy);
+      }
+      set_reg(i, val);
+    } else {
+      bus->write32(addr, get_reg(i) + ((i == 15) << 2), CYCLE_TYPE::SEQ);
+      if (w && i == first_reg) {
+        set_reg(rn, addr_copy);
+      }
+    }
+
+    if (!p)
+      addr -= 4;
+  }
+
+  if (bank) {
+    cpsr = bank;
+  }
+
+  if (l) {
+    // cylce 1I
+    if (r15_transfer) {
+      arm_fetch(); // 1N + 1S, next fetch -> +1S
+    }
+  } else {
+    cycle_type = CYCLE_TYPE::NON_SEQ; // next fetch is 1N
   }
 }
 
@@ -288,7 +348,7 @@ void CPU::sdt(uint32_t instr) {
 
   if (!p || (p && w)) {
     if (!l || !(rn == rd)) {
-      set_reg(rn, get_reg(rd) + ((rd == 15) << 2) + offset);
+      set_reg(rn, get_reg(rn) + ((rn == 15) << 2) + offset);
     }
   }
 
@@ -382,7 +442,7 @@ void CPU::hdtri(uint32_t instr) {
 
   if (!p || (p && w)) {
     if (!l || !(rn == rd)) {
-      set_reg(rn, get_reg(rn) + ((rd == 15) << 2) + offset);
+      set_reg(rn, get_reg(rn) + ((rn == 15) << 2) + offset);
     }
   }
 
@@ -499,7 +559,6 @@ void CPU::dproc(uint32_t instr) {
       set_cc(FLAG::N, op2 >> 31);
       set_cc(FLAG::Z, op2 == 0);
       set_cc(FLAG::C, carry);
-      set_cc(FLAG::V, false);
     }
     set_reg(rd, res);
     break;
@@ -510,7 +569,6 @@ void CPU::dproc(uint32_t instr) {
       set_cc(FLAG::N, op2 >> 31);
       set_cc(FLAG::Z, op2 == 0);
       set_cc(FLAG::C, carry);
-      set_cc(FLAG::V, false);
     }
     set_reg(rd, res);
     break;
@@ -594,7 +652,6 @@ void CPU::dproc(uint32_t instr) {
       set_cc(FLAG::N, op2 >> 31);
       set_cc(FLAG::Z, op2 == 0);
       set_cc(FLAG::C, carry);
-      set_cc(FLAG::V, false);
     }
     break;
   case DPROC_OPCODE::TEQ:
@@ -604,7 +661,6 @@ void CPU::dproc(uint32_t instr) {
       set_cc(FLAG::N, op2 >> 31);
       set_cc(FLAG::Z, op2 == 0);
       set_cc(FLAG::C, carry);
-      set_cc(FLAG::V, false);
     }
     break;
   case DPROC_OPCODE::CMP:
@@ -636,7 +692,6 @@ void CPU::dproc(uint32_t instr) {
       set_cc(FLAG::N, op2 >> 31);
       set_cc(FLAG::Z, op2 == 0);
       set_cc(FLAG::C, carry);
-      set_cc(FLAG::V, false);
     }
     set_reg(rd, res);
     break;
@@ -647,7 +702,6 @@ void CPU::dproc(uint32_t instr) {
       set_cc(FLAG::N, op2 >> 31);
       set_cc(FLAG::Z, op2 == 0);
       set_cc(FLAG::C, carry);
-      set_cc(FLAG::V, false);
     }
     set_reg(rd, res);
     break;
@@ -658,7 +712,6 @@ void CPU::dproc(uint32_t instr) {
       set_cc(FLAG::N, op2 >> 31);
       set_cc(FLAG::Z, op2 == 0);
       set_cc(FLAG::C, carry);
-      set_cc(FLAG::V, false);
     }
     set_reg(rd, res);
     break;
@@ -669,7 +722,6 @@ void CPU::dproc(uint32_t instr) {
       set_cc(FLAG::N, op2 >> 31);
       set_cc(FLAG::Z, op2 == 0);
       set_cc(FLAG::C, carry);
-      set_cc(FLAG::V, false);
     }
     set_reg(rd, res);
     break;
