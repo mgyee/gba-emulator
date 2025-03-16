@@ -1,7 +1,6 @@
 #include "cpu.h"
 #include "bus.h"
 #include <iostream>
-#include <thread>
 
 #define NYI(str)                                                               \
   std::cout << "NYI: " << str << std::endl;                                    \
@@ -17,6 +16,8 @@ void CPU::start(const char *rom_file, const char *bios_file) {
   bus->load_bios(bios_file);
   bus->load_rom(rom_file);
 
+  bus->update_wait();
+
   reset();
 
   running = true;
@@ -26,13 +27,17 @@ void CPU::start(const char *rom_file, const char *bios_file) {
 
 void CPU::run() {
   while (running) {
-    std::this_thread::sleep_for(std::chrono::milliseconds(1));
-    cycles = 0;
+    // std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    SDL_Event event;
+    while (SDL_PollEvent(&event)) {
+      if (event.type == SDL_QUIT) {
+        running = false;
+      }
+    }
     if (cpsr & CONTROL::T) {
     } else {
       uint32_t instr = arm_fetch_next();
-      if (instr == 0)
-        break;
+
       std::cout << std::hex << regs[15] - 8 << ": " << std::hex << instr
                 << ": ";
       if (eval_cond(instr)) {
@@ -128,12 +133,18 @@ CPU::MODE CPU::get_mode() { return static_cast<MODE>(cpsr & CONTROL::M); }
 uint32_t CPU::get_cpsr() { return cpsr; }
 void CPU::set_cpsr(uint32_t val) { cpsr = val; }
 
-void CPU::cycle(uint64_t count) { cycles += count; }
+void CPU::cycle(uint32_t count) {
+  for (uint32_t i = 0; i < count; i++) {
+    if (cycles % 64 == 0) {
+      bus->tick_ppu();
+    }
+    cycles++;
+  }
+}
 
 void CPU::arm_fetch() {
   pipeline[0] = bus->read32(regs[15], CYCLE_TYPE::NON_SEQ);
   pipeline[1] = bus->read32(regs[15] + 4, CYCLE_TYPE::SEQ);
-  cycle_type = CYCLE_TYPE::SEQ;
   regs[15] += 4;
 }
 
@@ -141,7 +152,6 @@ uint32_t CPU::arm_fetch_next() {
   uint32_t instr = pipeline[0];
   pipeline[0] = pipeline[1];
   pipeline[1] = bus->read32(regs[15] + 4, CYCLE_TYPE::SEQ);
-  cycle_type = CYCLE_TYPE::SEQ;
   regs[15] += 4;
   return instr;
 }
@@ -149,13 +159,15 @@ uint32_t CPU::arm_fetch_next() {
 void CPU::thumb_fetch() {
   pipeline[0] = bus->read16(regs[15], CYCLE_TYPE::NON_SEQ);
   pipeline[1] = bus->read16(regs[15] + 2, CYCLE_TYPE::SEQ);
-  cycle_type = CYCLE_TYPE::SEQ;
-  regs[15] += 4;
+  regs[15] += 2;
 }
 
-void CPU::thumb_fetch_next() {
+uint16_t CPU::thumb_fetch_next() {
+  uint16_t instr = pipeline[0];
   pipeline[0] = pipeline[1];
-  pipeline[1] = 0;
+  pipeline[1] = bus->read16(regs[15] + 2, CYCLE_TYPE::SEQ);
+  regs[15] += 2;
+  return instr;
 }
 
 uint32_t CPU::get_reg(uint8_t reg) {

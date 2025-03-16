@@ -227,7 +227,7 @@ void CPU::bdt(uint32_t instr) {
     addr_copy += size;
   }
 
-  cycle_type = CYCLE_TYPE::NON_SEQ; // reads/writes start as NON_SEQ
+  bus->set_last_cycle_type(CYCLE_TYPE::NON_SEQ);
 
   for (int i = first_reg; i < 16; i++) {
     if (!(reg_list & (1 << i))) {
@@ -262,7 +262,7 @@ void CPU::bdt(uint32_t instr) {
       arm_fetch(); // 1N + 1S, next fetch -> +1S
     }
   } else {
-    cycle_type = CYCLE_TYPE::NON_SEQ; // next fetch is 1N
+    bus->set_last_cycle_type(CYCLE_TYPE::NON_SEQ);
   }
 }
 
@@ -328,7 +328,7 @@ void CPU::sdt(uint32_t instr) {
     if (b) {
       val = bus->read8(addr, CYCLE_TYPE::NON_SEQ);
     } else {
-      barrel_shift(addr, SHIFT::ROR, (addr & 0x3) * 8, true);
+      // barrel_shift(addr, SHIFT::ROR, (addr & 0x3) * 8, true);
       val = bus->read32(addr, CYCLE_TYPE::NON_SEQ);
     }
     set_reg(rd, val);
@@ -343,7 +343,7 @@ void CPU::sdt(uint32_t instr) {
     } else {
       bus->write32(addr, val, CYCLE_TYPE::NON_SEQ);
     }
-    cycle_type = CYCLE_TYPE::NON_SEQ; // next fetch is 1N
+    bus->set_last_cycle_type(CYCLE_TYPE::NON_SEQ); // next fetch is 1N
   }
 
   if (!p || (p && w)) {
@@ -352,7 +352,7 @@ void CPU::sdt(uint32_t instr) {
     }
   }
 
-  // cycle 1I
+  cycle(1);
 
   if (l && (rd == 15)) {
     arm_fetch(); // 1N + 1S
@@ -404,7 +404,7 @@ void CPU::hdtri(uint32_t instr) {
       set_reg(rd, val);
     } else {
       bus->write16(addr, get_reg(rd), CYCLE_TYPE::NON_SEQ);
-      cycle_type = CYCLE_TYPE::NON_SEQ; // next fetch is 1N
+      bus->set_last_cycle_type(CYCLE_TYPE::NON_SEQ); // next fetch is 1N
     }
     break;
   case 0x2:
@@ -415,7 +415,7 @@ void CPU::hdtri(uint32_t instr) {
       }
       set_reg(rd, val);
     } else {
-      cycle_type = CYCLE_TYPE::NON_SEQ; // next fetch is 1N
+      bus->set_last_cycle_type(CYCLE_TYPE::NON_SEQ); // next fetch is 1N
     }
     break;
   case 0x3:
@@ -433,7 +433,7 @@ void CPU::hdtri(uint32_t instr) {
       }
       set_reg(rd, val);
     } else {
-      cycle_type = CYCLE_TYPE::NON_SEQ; // next fetch is 1N
+      bus->set_last_cycle_type(CYCLE_TYPE::NON_SEQ); // next fetch is 1N
     }
     break;
   default:
@@ -446,7 +446,7 @@ void CPU::hdtri(uint32_t instr) {
     }
   }
 
-  // cycle 1I
+  cycle(1);
 
   if (l && (rd == 15)) {
     arm_fetch(); // 1N + 1S

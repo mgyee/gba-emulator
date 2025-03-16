@@ -1,6 +1,4 @@
 #include "bus.h"
-#include "cpu.h"
-#include "sdl.h"
 #include <cstdio>
 
 #define SCREEN_HEIGHT 160
@@ -17,9 +15,13 @@ int main(int argc, char *argv[]) {
 
   Bus *bus = new Bus(*cpu);
 
+  PPU *ppu = new PPU(*bus);
+
+  bus->attach_ppu(ppu);
+
   cpu->set_bus(bus);
 
-  sdl_init();
+  ppu->sdl_init();
 
   cpu->start(argv[1], "../bios.bin");
 
@@ -34,7 +36,7 @@ int main(int argc, char *argv[]) {
   //   }
   // }
 
-  sdl_quit();
+  ppu->sdl_quit();
   delete cpu;
 
   return 0;

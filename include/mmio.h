@@ -1,4 +1,6 @@
+#pragma once
 #include <cstdint>
+
 struct LCD {
   /*
    * Unions make each part (full, bytes, bits) occupy same space in memory,
@@ -60,10 +62,10 @@ struct LCD {
 
   union {
     struct {
-      uint8_t scanline : 1; // Current Scanline (LY)      (0..227) (R)
+      uint8_t scanline : 8; // Current Scanline (LY)      (0..227) (R)
       bool : 1;    // Not used (0) / NDS: MSB of Current Scanline (LY.Bit8)
                    // (0..262)   (R)
-      uint8_t : 1; // Not Used (0)
+      uint8_t : 8; // Not Used (0)
     } bits;
     uint8_t bytes[2];
     uint16_t full;

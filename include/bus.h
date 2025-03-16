@@ -1,6 +1,6 @@
 #pragma once
 #include "cpu.h"
-#include "mmio.h"
+#include "ppu.h"
 
 #define BIOS_START (0x00000000) // BIOS - System ROM (16 KiB)
 #define BIOS_END (0x00003FFF)
@@ -39,6 +39,9 @@
 class Bus {
 public:
   Bus(CPU &cpu);
+  ~Bus();
+
+  void attach_ppu(PPU *ppu);
 
   void write32(uint32_t addr, uint32_t data, CPU::CYCLE_TYPE type);
   uint32_t read32(uint32_t addr, CPU::CYCLE_TYPE type);
@@ -52,9 +55,16 @@ public:
   bool load_bios(const char *bios_file);
   bool load_rom(const char *rom_file);
 
+  void update_wait();
+
+  void set_last_cycle_type(CPU::CYCLE_TYPE cycle_type);
+
+  void tick_ppu();
+
 private:
   // std::unique_ptr<CPU> cpu;
   CPU &cpu;
+  PPU *ppu;
 
   enum IO_REGS {
     /* LCD I/O Registers */
@@ -208,6 +218,103 @@ private:
     // only)
   };
 
+  struct IWPDC {
+    union {
+      struct {
+        bool disable : 1; // (0=Disable All, 1=See IE register)
+        uint32_t : 31;    // Not used
+      } bits;
+      uint8_t bytes[4];
+      uint16_t halfwords[2];
+      uint32_t full;
+    } ime;
+
+    union {
+      struct {
+        bool vblank : 1;   // LCD V-Blank                    (0=Disable)
+        bool hblank : 1;   // LCD H-Blank                    (etc.)
+        bool vcounter : 1; // LCD V-Counter Match            (etc.)
+        bool timer0 : 1;   // Timer 0 Overflow               (etc.)
+        bool timer1 : 1;   // Timer 1 Overflow               (etc.)
+        bool timer2 : 1;   // Timer 2 Overflow               (etc.)
+        bool timer3 : 1;   // Timer 3 Overflow               (etc.)
+        bool comm : 1;     // Serial Communication           (etc.)
+        bool dma0 : 1;     // DMA 0                          (etc.)
+        bool dma1 : 1;     // DMA 1                          (etc.)
+        bool dma2 : 1;     // DMA 2                          (etc.)
+        bool dma3 : 1;     // DMA 3                          (etc.)
+        bool keypad : 1;   // Keypad                         (etc.)
+        bool gamepak : 1;  // Game Pak (external IRQ source) (etc.)
+        uint8_t : 2;       // Not used
+      } bits;
+      uint8_t bytes[2];
+      uint16_t full;
+    } ie;
+
+    union {
+      struct {
+        bool vblank : 1; // LCD V-Blank                    (1=Request Interrupt)
+        bool hblank : 1; // LCD H-Blank                    (etc.)
+        bool vcounter : 1; // LCD V-Counter Match            (etc.)
+        bool timer0 : 1;   // Timer 0 Overflow               (etc.)
+        bool timer1 : 1;   // Timer 1 Overflow               (etc.)
+        bool timer2 : 1;   // Timer 2 Overflow               (etc.)
+        bool timer3 : 1;   // Timer 3 Overflow               (etc.)
+        bool comm : 1;     // Serial Communication           (etc.)
+        bool dma0 : 1;     // DMA 0                          (etc.)
+        bool dma1 : 1;     // DMA 1                          (etc.)
+        bool dma2 : 1;     // DMA 2                          (etc.)
+        bool dma3 : 1;     // DMA 3                          (etc.)
+        bool keypad : 1;   // Keypad                         (etc.)
+        bool gamepak : 1;  // Game Pak (external IRQ source) (etc.)
+        uint8_t : 2;       // Not used
+      } bits;
+      uint8_t bytes[2];
+      uint16_t full;
+    } i_f;
+
+    union {
+      struct {
+        uint8_t sram : 2; // SRAM Wait Control          (0..3 = 4,3,2,8 cycles)
+        uint8_t ws01 : 2; // Wait State 0 First Access  (0..3 = 4,3,2,8 cycles)
+        bool ws02 : 1;    // Wait State 0 Second Access (0..1 = 2,1 cycles)
+        uint8_t ws11 : 2; // Wait State 1 First Access  (0..3 = 4,3,2,8 cycles)
+        bool ws12 : 1; // Wait State 1 Second Access (0..1 = 4,1 cycles; unlike
+                       // above WS0)
+        uint8_t ws21 : 2; // Wait State 2 First Access  (0..3 = 4,3,2,8 cycles)
+        bool ws22 : 1; // Wait State 2 Second Access (0..1 = 8,1 cycles; unlike
+                       // above WS0,WS1)
+        uint8_t phi : 2;   // PHI Terminal Output        (0..3 =
+                           // Disable, 4.19MHz, 8.38MHz, 16.78MHz)
+        bool : 1;          // Not used
+        bool prefetch : 1; // Game Pak Prefetch Buffer (Pipe) (0=Disable,
+                           // 1=Enable)
+        bool type : 1; // Game Pak Type Flag  (Read Only) (0=GBA, 1=CGB) (IN35
+                       // signal)
+        uint16_t : 16; // Not used
+      } bits;
+      uint8_t bytes[4];
+      uint16_t halfwords[2];
+      uint32_t full;
+    } waitcnt;
+
+    union {
+      struct {
+        bool flag : 1; // Undocumented. First Boot Flag  (0=First, 1=Further)
+        uint8_t : 7;   // Undocumented. Not used.
+      } bits;
+      uint8_t full;
+    } postflag;
+
+    union {
+      struct {
+        uint8_t : 7;        // Undocumented. Not used.
+        bool powerDown : 1; // Undocumented. Power Down Mode  (0=Halt, 1=Stop)
+      } bits;
+      uint8_t full;
+    } haltcnt;
+  };
+
   uint8_t bios[BIOS_END - BIOS_START + 1];
   uint8_t ewram[EWRAM_END - EWRAM_START + 1];
   uint8_t iwram[IWRAM_END - IWRAM_START + 1];
@@ -231,8 +338,19 @@ private:
     uint32_t full;
   } internalPY[2];
 
-  // lcd data
-  LCD lcd;
+  IWPDC iwpdc;
+
+  CPU::CYCLE_TYPE last_cycle_type;
+
+  uint32_t wait16[2][16]{
+      {1, 1, 3, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1}, // NON_SEQ
+      {1, 1, 3, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1}, // SEQ
+  };
+
+  uint32_t wait32[2][16]{
+      {1, 1, 6, 1, 1, 2, 2, 1, 0, 0, 0, 0, 0, 0, 0, 1}, // NON_SEQ
+      {1, 1, 6, 1, 1, 2, 2, 1, 0, 0, 0, 0, 0, 0, 0, 1}, // SEQ
+  };
 
   uint32_t read_open_bus(uint32_t addr);
   uint32_t read_sram(uint32_t addr);

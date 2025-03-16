@@ -9,6 +9,7 @@ public:
   enum CYCLE_TYPE {
     NON_SEQ,
     SEQ,
+    FAST,
   };
 
   CPU();
@@ -18,10 +19,10 @@ public:
 
   void start(const char *rom_file, const char *bios_file);
 
-  CYCLE_TYPE get_last_cycle_type() { return cycle_type; }
-
   uint32_t get_reg(uint8_t rn);
   void set_reg(uint8_t rn, uint32_t val);
+
+  void cycle(uint32_t count);
 
 private:
   // instr[31:28]
@@ -56,13 +57,11 @@ private:
   uint32_t get_cpsr();
   void set_cpsr(uint32_t val);
 
-  void cycle(uint64_t count);
-
   void arm_fetch();
   uint32_t arm_fetch_next();
 
   void thumb_fetch();
-  void thumb_fetch_next();
+  uint16_t thumb_fetch_next();
 
   void step(uint64_t count);
 
@@ -98,8 +97,6 @@ private:
   uint32_t spsr_abt;
   uint32_t spsr_irq;
   uint32_t spsr_und;
-
-  CYCLE_TYPE cycle_type;
 
   uint32_t pipeline[2];
   uint32_t cycles;
