@@ -24,6 +24,8 @@ public:
 private:
   Bus &bus;
 
+  uint32_t dots;
+
   uint32_t *frame;
 
   SDL_Window *window;

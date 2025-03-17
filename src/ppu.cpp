@@ -3,9 +3,15 @@
 
 PPU::PPU(Bus &bus) : bus(bus) {
   frame = new uint32_t[SCREEN_WIDTH * SCREEN_HEIGHT];
+  pitch = 240 * sizeof(uint32_t);
+  dots = 0;
+  sdl_init();
 }
 
-PPU::~PPU() {}
+PPU::~PPU() {
+  delete[] frame;
+  sdl_quit();
+}
 
 bool PPU::sdl_init() {
   if (SDL_Init(SDL_INIT_VIDEO) != 0) {
@@ -25,8 +31,6 @@ bool PPU::sdl_init() {
                               SDL_TEXTUREACCESS_STREAMING, 240, 160);
   if (!texture)
     goto cleanup;
-
-  pitch = 240 * sizeof(uint32_t);
 
   return true;
 
@@ -52,24 +56,27 @@ void PPU::sdl_quit() {
 }
 
 void PPU::tick() {
-  if (lcd.vcount.bits.scanline == 0) {
-    lcd.dispstat.bits.vblank = 0; // VBlank ends at start of new frame
-  }
+  if (dots == 1232) {
+    dots = 0;
+    if (lcd.vcount.bits.scanline < SCREEN_HEIGHT) {
+      render_scanline(lcd.vcount.bits.scanline);
+    }
 
-  if (lcd.vcount.bits.scanline < SCREEN_HEIGHT) {
-    render_scanline(lcd.vcount.bits.scanline);
-  }
+    lcd.vcount.bits.scanline++;
 
-  if (lcd.vcount.bits.scanline == SCREEN_HEIGHT) {
-    lcd.dispstat.bits.vblank = 1; // VBlank starts at scanline 160
-    SDL_UpdateTexture(texture, NULL, frame, SCREEN_WIDTH * sizeof(uint32_t));
-    SDL_RenderCopy(renderer, texture, NULL, NULL);
-    SDL_RenderPresent(renderer);
-  }
+    if (lcd.vcount.bits.scanline == SCREEN_HEIGHT) {
+      lcd.dispstat.bits.vblank = 1;
+      SDL_UpdateTexture(texture, NULL, frame, pitch);
+      SDL_RenderCopy(renderer, texture, NULL, NULL);
+      SDL_RenderPresent(renderer);
+    }
 
-  lcd.vcount.bits.scanline++;
-  if (lcd.vcount.bits.scanline >= 228) {
-    lcd.vcount.bits.scanline = 0; // New frame starts
+    if (lcd.vcount.bits.scanline == 228) {
+      lcd.dispstat.bits.vblank = 0;
+      lcd.vcount.bits.scanline = 0;
+    }
+  } else {
+    dots++;
   }
 }
 

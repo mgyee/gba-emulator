@@ -1,6 +1,8 @@
 #include "cpu.h"
 #include "bus.h"
+#include <chrono>
 #include <iostream>
+#include <thread>
 
 #define NYI(str)                                                               \
   std::cout << "NYI: " << str << std::endl;                                    \
@@ -27,7 +29,7 @@ void CPU::start(const char *rom_file, const char *bios_file) {
 
 void CPU::run() {
   while (running) {
-    // std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    // std::this_thread::sleep_for(std::chrono::nanoseconds(10));
     SDL_Event event;
     while (SDL_PollEvent(&event)) {
       if (event.type == SDL_QUIT) {
@@ -38,17 +40,17 @@ void CPU::run() {
     } else {
       uint32_t instr = arm_fetch_next();
 
-      std::cout << std::hex << regs[15] - 8 << ": " << std::hex << instr
-                << ": ";
+      // std::cout << std::hex << regs[15] - 8 << ": " << std::hex << instr
+      //           << ": ";
       if (eval_cond(instr)) {
         if (is_bx(instr)) {
-          std::cout << "bx" << std::endl;
+          // std::cout << "bx" << std::endl;
           bx(instr); // NOTE: DONE
         } else if (is_bdt(instr)) {
-          std::cout << "bdt" << std::endl;
+          // std::cout << "bdt" << std::endl;
           bdt(instr);
         } else if (is_bl(instr)) {
-          std::cout << "bl" << std::endl;
+          // std::cout << "bl" << std::endl;
           bl(instr); // NOTE: DONE
         } else if (is_swi(instr)) {
           NYI("swi");
@@ -57,7 +59,7 @@ void CPU::run() {
           NYI("und");
           // und(instr);
         } else if (is_sdt(instr)) {
-          std::cout << "sdt" << std::endl;
+          // std::cout << "sdt" << std::endl;
           sdt(instr); // NOTE: DONE
         } else if (is_sds(instr)) {
           NYI("sds");
@@ -66,21 +68,21 @@ void CPU::run() {
           NYI("mul");
           // mul(instr);
         } else if (is_hdtri(instr)) {
-          std::cout << "hdtri" << std::endl;
+          // std::cout << "hdtri" << std::endl;
           hdtri(instr);
         } else if (is_psrt(instr)) {
-          std::cout << "psrt" << std::endl;
+          // std::cout << "psrt" << std::endl;
           psrt(instr); // NOTE: DONE
         } else if (is_dproc(instr)) {
           // NYI("dproc");
-          std::cout << "dproc: ";
+          // std::cout << "dproc: ";
           dproc(instr); // NOTE: DONE
         } else {
-          std::cout << "unknown" << std::endl;
+          // std::cout << "unknown" << std::endl;
           running = false;
         }
       } else {
-        std::cout << "skipped" << std::endl;
+        // std::cout << "skipped" << std::endl;
         // running = false;
       }
 
@@ -135,9 +137,9 @@ void CPU::set_cpsr(uint32_t val) { cpsr = val; }
 
 void CPU::cycle(uint32_t count) {
   for (uint32_t i = 0; i < count; i++) {
-    if (cycles % 64 == 0) {
-      bus->tick_ppu();
-    }
+    // if (cycles % 64 == 0) {
+    bus->tick_ppu();
+    // }
     cycles++;
   }
 }

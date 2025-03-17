@@ -21,7 +21,7 @@ int main(int argc, char *argv[]) {
 
   cpu->set_bus(bus);
 
-  ppu->sdl_init();
+  // ppu->sdl_init();
 
   cpu->start(argv[1], "../bios.bin");
 
@@ -36,7 +36,7 @@ int main(int argc, char *argv[]) {
   //   }
   // }
 
-  ppu->sdl_quit();
+  // ppu->sdl_quit();
   delete cpu;
 
   return 0;

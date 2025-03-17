@@ -553,27 +553,27 @@ void CPU::dproc(uint32_t instr) {
   uint32_t res;
   switch (opcode) {
   case DPROC_OPCODE::AND:
-    std::cout << "AND" << std::endl;
+    // std::cout << "AND" << std::endl;
     res = op1 & op2;
     if (s) {
-      set_cc(FLAG::N, op2 >> 31);
-      set_cc(FLAG::Z, op2 == 0);
+      set_cc(FLAG::N, res >> 31);
+      set_cc(FLAG::Z, res == 0);
       set_cc(FLAG::C, carry);
     }
     set_reg(rd, res);
     break;
   case DPROC_OPCODE::EOR:
-    std::cout << "EOR" << std::endl;
+    // std::cout << "EOR" << std::endl;
     res = op1 ^ op2;
     if (s) {
-      set_cc(FLAG::N, op2 >> 31);
-      set_cc(FLAG::Z, op2 == 0);
+      set_cc(FLAG::N, res >> 31);
+      set_cc(FLAG::Z, res == 0);
       set_cc(FLAG::C, carry);
     }
     set_reg(rd, res);
     break;
   case DPROC_OPCODE::SUB:
-    std::cout << "SUB" << std::endl;
+    // std::cout << "SUB" << std::endl;
     res = op1 - op2;
     if (s) {
       set_cc(FLAG::N, res >> 31);
@@ -585,7 +585,7 @@ void CPU::dproc(uint32_t instr) {
     set_reg(rd, res);
     break;
   case DPROC_OPCODE::RSB:
-    std::cout << "RSB" << std::endl;
+    // std::cout << "RSB" << std::endl;
     res = op2 - op1;
     if (s) {
       set_cc(FLAG::N, res >> 31);
@@ -597,7 +597,7 @@ void CPU::dproc(uint32_t instr) {
     set_reg(rd, res);
     break;
   case DPROC_OPCODE::ADD:
-    std::cout << "ADD" << std::endl;
+    // std::cout << "ADD" << std::endl;
     res = op1 + op2;
     if (s) {
       set_cc(FLAG::N, res >> 31);
@@ -609,7 +609,7 @@ void CPU::dproc(uint32_t instr) {
     set_reg(rd, res);
     break;
   case DPROC_OPCODE::ADC:
-    std::cout << "ADC" << std::endl;
+    // std::cout << "ADC" << std::endl;
     res = op1 + op2 + get_cc(FLAG::C);
     if (s) {
       set_cc(FLAG::N, res >> 31);
@@ -621,7 +621,7 @@ void CPU::dproc(uint32_t instr) {
     set_reg(rd, res);
     break;
   case DPROC_OPCODE::SBC:
-    std::cout << "SBC" << std::endl;
+    // std::cout << "SBC" << std::endl;
     res = op1 - op2 - !get_cc(FLAG::C);
     if (s) {
       set_cc(FLAG::N, res >> 31);
@@ -634,7 +634,7 @@ void CPU::dproc(uint32_t instr) {
     set_reg(rd, res);
     break;
   case DPROC_OPCODE::RSC:
-    std::cout << "RSC" << std::endl;
+    // std::cout << "RSC" << std::endl;
     res = op2 - op1 - !get_cc(FLAG::C);
     if (s) {
       set_cc(FLAG::N, res >> 31);
@@ -646,25 +646,25 @@ void CPU::dproc(uint32_t instr) {
     }
     break;
   case DPROC_OPCODE::TST:
-    std::cout << "TST" << std::endl;
+    // std::cout << "TST" << std::endl;
     res = op1 & op2;
     if (s) {
-      set_cc(FLAG::N, op2 >> 31);
-      set_cc(FLAG::Z, op2 == 0);
+      set_cc(FLAG::N, res >> 31);
+      set_cc(FLAG::Z, res == 0);
       set_cc(FLAG::C, carry);
     }
     break;
   case DPROC_OPCODE::TEQ:
-    std::cout << "TEQ" << std::endl;
+    // std::cout << "TEQ" << std::endl;
     res = op1 ^ op2;
     if (s) {
-      set_cc(FLAG::N, op2 >> 31);
-      set_cc(FLAG::Z, op2 == 0);
+      set_cc(FLAG::N, res >> 31);
+      set_cc(FLAG::Z, res == 0);
       set_cc(FLAG::C, carry);
     }
     break;
   case DPROC_OPCODE::CMP:
-    std::cout << "CMP" << std::endl;
+    // std::cout << "CMP" << std::endl;
     res = op1 - op2;
     if (s) {
       set_cc(FLAG::N, res >> 31);
@@ -675,7 +675,7 @@ void CPU::dproc(uint32_t instr) {
     }
     break;
   case DPROC_OPCODE::CMN:
-    std::cout << "CMN" << std::endl;
+    // std::cout << "CMN" << std::endl;
     res = op1 + op2;
     if (s) {
       set_cc(FLAG::N, res >> 31);
@@ -686,41 +686,41 @@ void CPU::dproc(uint32_t instr) {
     }
     break;
   case DPROC_OPCODE::ORR:
-    std::cout << "ORR" << std::endl;
+    // std::cout << "ORR" << std::endl;
     res = op1 | op2;
     if (s) {
-      set_cc(FLAG::N, op2 >> 31);
-      set_cc(FLAG::Z, op2 == 0);
+      set_cc(FLAG::N, res >> 31);
+      set_cc(FLAG::Z, res == 0);
       set_cc(FLAG::C, carry);
     }
     set_reg(rd, res);
     break;
   case DPROC_OPCODE::MOV:
-    std::cout << "MOV" << std::endl;
+    // std::cout << "MOV" << std::endl;
     res = op2;
     if (s) {
-      set_cc(FLAG::N, op2 >> 31);
-      set_cc(FLAG::Z, op2 == 0);
+      set_cc(FLAG::N, res >> 31);
+      set_cc(FLAG::Z, res == 0);
       set_cc(FLAG::C, carry);
     }
     set_reg(rd, res);
     break;
   case DPROC_OPCODE::BIC:
-    std::cout << "BIC" << std::endl;
+    // std::cout << "BIC" << std::endl;
     res = op1 & (~op2);
     if (s) {
-      set_cc(FLAG::N, op2 >> 31);
-      set_cc(FLAG::Z, op2 == 0);
+      set_cc(FLAG::N, res >> 31);
+      set_cc(FLAG::Z, res == 0);
       set_cc(FLAG::C, carry);
     }
     set_reg(rd, res);
     break;
   case DPROC_OPCODE::MVN:
-    std::cout << "MVN" << std::endl;
+    // std::cout << "MVN" << std::endl;
     res = ~op2;
     if (s) {
-      set_cc(FLAG::N, op2 >> 31);
-      set_cc(FLAG::Z, op2 == 0);
+      set_cc(FLAG::N, res >> 31);
+      set_cc(FLAG::Z, res == 0);
       set_cc(FLAG::C, carry);
     }
     set_reg(rd, res);
