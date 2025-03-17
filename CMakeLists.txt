@@ -8,6 +8,6 @@ find_package(SDL2 REQUIRED)
 
 include_directories(include)
 
-add_executable(gba_emulator src/main.cpp src/cpu.cpp src/bus.cpp src/ppu.cpp src/arm.cpp)
+add_executable(gba_emulator src/main.cpp src/cpu.cpp src/bus.cpp src/ppu.cpp src/arm.cpp src/thumb.cpp)
 
 target_link_libraries(gba_emulator SDL2::SDL2)

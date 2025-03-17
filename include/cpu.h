@@ -1,5 +1,11 @@
 #pragma once
 #include <cstdint>
+#include <iostream>
+
+#define NYI(str)                                                               \
+  std::cout << "NYI: " << str << std::endl;                                    \
+  running = false;                                                             \
+  return;
 
 class Bus;
 
@@ -52,7 +58,7 @@ private:
     M = 1 << 4 | 1 << 3 | 1 << 2 | 1 << 1 | 1 << 0,
   };
 
-  bool eval_cond(uint32_t instr);
+  bool eval_cond(COND cond);
 
   uint32_t get_cpsr();
   void set_cpsr(uint32_t val);
@@ -166,27 +172,49 @@ private:
   bool barrel_shift(uint32_t &val, SHIFT shift_type, uint8_t shift_amount,
                     bool shift_by_reg);
 
-  bool is_bx(uint32_t instr);
-  bool is_bdt(uint32_t instr);
-  bool is_bl(uint32_t instr);
-  bool is_swi(uint32_t instr);
-  bool is_und(uint32_t instr);
-  bool is_sdt(uint32_t instr);
-  bool is_sds(uint32_t instr);
-  bool is_mul(uint32_t instr);
-  bool is_hdtri(uint32_t instr);
-  bool is_psrt(uint32_t instr);
-  bool is_dproc(uint32_t instr);
+  // ARM instructions
+  bool arm_is_bx(uint32_t instr);
+  bool arm_is_bdt(uint32_t instr);
+  bool arm_is_bl(uint32_t instr);
+  bool arm_is_swi(uint32_t instr);
+  bool arm_is_und(uint32_t instr);
+  bool arm_is_sdt(uint32_t instr);
+  bool arm_is_sds(uint32_t instr);
+  bool arm_is_mul(uint32_t instr);
+  bool arm_is_hdtri(uint32_t instr);
+  bool arm_is_psrt(uint32_t instr);
+  bool arm_is_dproc(uint32_t instr);
 
-  void bx(uint32_t instr);
-  void bdt(uint32_t instr);
-  void bl(uint32_t instr);
-  void swi(uint32_t instr);
-  void und(uint32_t instr);
-  void sdt(uint32_t instr);
-  void sds(uint32_t instr);
-  void mul(uint32_t instr);
-  void hdtri(uint32_t instr);
-  void psrt(uint32_t instr);
-  void dproc(uint32_t instr);
+  void arm_bx(uint32_t instr);
+  void arm_bdt(uint32_t instr);
+  void arm_bl(uint32_t instr);
+  void arm_swi(uint32_t instr);
+  void arm_und(uint32_t instr);
+  void arm_sdt(uint32_t instr);
+  void arm_sds(uint32_t instr);
+  void arm_mul(uint32_t instr);
+  void arm_hdtri(uint32_t instr);
+  void arm_psrt(uint32_t instr);
+  void arm_dproc(uint32_t instr);
+
+  // Thumb instructions
+  void thumb_msr(uint16_t instr);
+  void thumb_as(uint16_t instr);
+  void thumb_mcasi(uint16_t instr);
+  void thumb_alu(uint16_t instr);
+  void thumb_hrobx(uint16_t instr);
+  void thumb_pcrl(uint16_t instr);
+  void thumb_lsro(uint16_t instr);
+  void thumb_lssebh(uint16_t instr);
+  void thumb_lsio(uint16_t instr);
+  void thumb_lsh(uint16_t instr);
+  void thumb_sprls(uint16_t instr);
+  void thumb_la(uint16_t instr);
+  void thumb_aosp(uint16_t instr);
+  void thumb_ppr(uint16_t instr);
+  void thumb_mls(uint16_t instr);
+  void thumb_cb(uint16_t instr);
+  void thumb_swi(uint16_t instr);
+  void thumb_ub(uint16_t instr);
+  void thumb_lbl(uint16_t instr);
 };
