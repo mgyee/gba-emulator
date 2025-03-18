@@ -1,5 +1,7 @@
 #include "cpu.h"
 #include "bus.h"
+#include <chrono>
+#include <thread>
 
 CPU::CPU() {};
 
@@ -21,117 +23,127 @@ void CPU::start(const char *rom_file, const char *bios_file) {
 }
 
 void CPU::run() {
+  auto start_time = std::chrono::steady_clock::now();
   while (running) {
+    auto now = std::chrono::steady_clock::now();
+    auto elapsed_time =
+        std::chrono::duration_cast<std::chrono::microseconds>(now - start_time)
+            .count();
+    cycles = 0;
+    uint32_t expected_cycles = elapsed_time * (2 << 24) / 1000000;
     // std::this_thread::sleep_for(std::chrono::nanoseconds(10));
-    SDL_Event event;
-    while (SDL_PollEvent(&event)) {
-      if (event.type == SDL_QUIT) {
-        running = false;
-      }
-    }
-    if (cpsr & CONTROL::T) {
-      uint16_t instr = thumb_fetch_next();
-      std::cout << std::hex << regs[15] - 4 << ": " << instr << std::endl;
-
-      if ((instr & 0xF000) == 0xF000) {
-        thumb_lbl(instr);
-      } else if ((instr & 0xF800) == 0xE000) {
-        thumb_ub(instr);
-      } else if ((instr & 0xFF00) == 0xDF00) {
-        thumb_swi(instr);
-      } else if ((instr & 0xF000) == 0xD000) {
-        thumb_cb(instr);
-      } else if ((instr & 0xF000) == 0xC000) {
-        thumb_mls(instr);
-      } else if ((instr & 0xFF00) == 0xB000) {
-        thumb_aosp(instr);
-      } else if ((instr & 0xF000) == 0xB000) {
-        thumb_ppr(instr);
-      } else if ((instr & 0xF000) == 0xA000) {
-        thumb_la(instr);
-      } else if ((instr & 0xF800) == 0x9000) {
-        thumb_sprls(instr);
-      } else if ((instr & 0xF800) == 0x8000) {
-        thumb_lsh(instr);
-      } else if ((instr & 0xE000) == 0x6000) {
-        thumb_lsio(instr);
-      } else if ((instr & 0xFF00) == 0x5000) {
-        if (instr & (1 << 9)) {
-          thumb_lssebh(instr);
-        } else {
-          thumb_lsro(instr);
+    while (cycles < expected_cycles && running) {
+      SDL_Event event;
+      while (SDL_PollEvent(&event)) {
+        if (event.type == SDL_QUIT) {
+          running = false;
         }
-      } else if ((instr & 0xF800) == 0x4800) {
-        thumb_pcrl(instr);
-      } else if ((instr & 0xFC00) == 0x4400) {
-        thumb_hrobx(instr);
-      } else if ((instr & 0xFC00) == 0x4000) {
-        thumb_alu(instr);
-      } else if ((instr & 0xE000) == 0x2000) {
-        thumb_mcasi(instr);
-      } else if ((instr & 0xF800) == 0x1800) {
-        thumb_as(instr);
-      } else if ((instr & 0xE000) == 0x0000) {
-        thumb_msr(instr);
-      } else {
-        // std::cout << "unknown" << std::endl;
-        running = false;
       }
-    } else {
-      uint32_t instr = arm_fetch_next();
+      if (cpsr & CONTROL::T) {
+        uint16_t instr = thumb_fetch_next();
+        // std::cout << std::hex << regs[15] - 4 << ": " << instr << std::endl;
 
-      std::cout << std::hex << regs[15] - 8 << ": " << std::hex << instr
-                << std::endl;
-      //           << ": ";
-      COND cond = static_cast<COND>((instr >> 28) & 0xf);
-      if (eval_cond(cond)) {
-        if (arm_is_bx(instr)) {
-          // std::cout << "bx" << std::endl;
-          arm_bx(instr); // NOTE: DONE
-        } else if (arm_is_bdt(instr)) {
-          // std::cout << "bdt" << std::endl;
-          arm_bdt(instr);
-        } else if (arm_is_bl(instr)) {
-          // std::cout << "bl" << std::endl;
-          arm_bl(instr); // NOTE: DONE
-        } else if (arm_is_swi(instr)) {
-          NYI("swi");
-          // swi(instr);
-        } else if (arm_is_und(instr)) {
-          NYI("und");
-          // und(instr);
-        } else if (arm_is_sdt(instr)) {
-          // std::cout << "sdt" << std::endl;
-          arm_sdt(instr); // NOTE: DONE
-        } else if (arm_is_sds(instr)) {
-          NYI("sds");
-          // sds(instr);
-        } else if (arm_is_mul(instr)) {
-          NYI("mul");
-          // mul(instr);
-        } else if (arm_is_hdtri(instr)) {
-          // std::cout << "hdtri" << std::endl;
-          arm_hdtri(instr);
-        } else if (arm_is_psrt(instr)) {
-          // std::cout << "psrt" << std::endl;
-          arm_psrt(instr); // NOTE: DONE
-        } else if (arm_is_dproc(instr)) {
-          // NYI("dproc");
-          // std::cout << "dproc: ";
-          arm_dproc(instr); // NOTE: DONE
+        if ((instr & 0xF000) == 0xF000) {
+          thumb_lbl(instr);
+        } else if ((instr & 0xF800) == 0xE000) {
+          thumb_ub(instr);
+        } else if ((instr & 0xFF00) == 0xDF00) {
+          thumb_swi(instr);
+        } else if ((instr & 0xF000) == 0xD000) {
+          thumb_cb(instr);
+        } else if ((instr & 0xF000) == 0xC000) {
+          thumb_mls(instr);
+        } else if ((instr & 0xFF00) == 0xB000) {
+          thumb_aosp(instr);
+        } else if ((instr & 0xF000) == 0xB000) {
+          thumb_ppr(instr);
+        } else if ((instr & 0xF000) == 0xA000) {
+          thumb_la(instr);
+        } else if ((instr & 0xF800) == 0x9000) {
+          thumb_sprls(instr);
+        } else if ((instr & 0xF800) == 0x8000) {
+          thumb_lsh(instr);
+        } else if ((instr & 0xE000) == 0x6000) {
+          thumb_lsio(instr);
+        } else if ((instr & 0xFF00) == 0x5000) {
+          if (instr & (1 << 9)) {
+            thumb_lssebh(instr);
+          } else {
+            thumb_lsro(instr);
+          }
+        } else if ((instr & 0xF800) == 0x4800) {
+          thumb_pcrl(instr);
+        } else if ((instr & 0xFC00) == 0x4400) {
+          thumb_hrobx(instr);
+        } else if ((instr & 0xFC00) == 0x4000) {
+          thumb_alu(instr);
+        } else if ((instr & 0xE000) == 0x2000) {
+          thumb_mcasi(instr);
+        } else if ((instr & 0xF800) == 0x1800) {
+          thumb_as(instr);
+        } else if ((instr & 0xE000) == 0x0000) {
+          thumb_msr(instr);
         } else {
           // std::cout << "unknown" << std::endl;
           running = false;
         }
       } else {
-        // std::cout << "skipped" << std::endl;
-        // running = false;
-      }
+        uint32_t instr = arm_fetch_next();
 
-      // if (std::cin.get() == 'q') {
-      //   running = false;
-      // }
+        std::cout << std::hex << regs[15] - 8 << ": " << std::hex << instr
+                  << std::endl;
+        //           << ": ";
+        COND cond = static_cast<COND>((instr >> 28) & 0xf);
+        if (eval_cond(cond)) {
+          if (arm_is_bx(instr)) {
+            // std::cout << "bx" << std::endl;
+            arm_bx(instr); // NOTE: DONE
+          } else if (arm_is_bdt(instr)) {
+            // std::cout << "bdt" << std::endl;
+            arm_bdt(instr);
+          } else if (arm_is_bl(instr)) {
+            // std::cout << "bl" << std::endl;
+            arm_bl(instr); // NOTE: DONE
+          } else if (arm_is_swi(instr)) {
+            NYI("swi");
+            // swi(instr);
+          } else if (arm_is_und(instr)) {
+            NYI("und");
+            // und(instr);
+          } else if (arm_is_sdt(instr)) {
+            // std::cout << "sdt" << std::endl;
+            arm_sdt(instr); // NOTE: DONE
+          } else if (arm_is_sds(instr)) {
+            NYI("sds");
+            // sds(instr);
+          } else if (arm_is_mul(instr)) {
+            // NYI("mul");
+            arm_mul(instr);
+          } else if (arm_is_hdtri(instr)) {
+            // std::cout << "hdtri" << std::endl;
+            arm_hdtri(instr);
+          } else if (arm_is_psrt(instr)) {
+            // std::cout << "psrt" << std::endl;
+            arm_psrt(instr); // NOTE: DONE
+          } else if (arm_is_dproc(instr)) {
+            // NYI("dproc");
+            // std::cout << "dproc: ";
+            arm_dproc(instr); // NOTE: DONE
+          } else {
+            // std::cout << "unknown" << std::endl;
+            running = false;
+          }
+        } else {
+          // std::cout << "skipped" << std::endl;
+          // running = false;
+        }
+
+        // if (std::cin.get() == 'q') {
+        //   running = false;
+        // }
+      }
     }
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
   }
 }
 

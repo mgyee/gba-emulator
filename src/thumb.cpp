@@ -152,7 +152,17 @@ void CPU::thumb_alu(uint16_t instr) {
   uint32_t res;
 
   switch (opcode) {
+  case 0xA:
+    // CMP
+    res = op1 - op2;
+    set_cc(FLAG::N, res >> 31);
+    set_cc(FLAG::Z, res == 0);
+    set_cc(FLAG::C, op1 >= op2);
+    set_cc(FLAG::V,
+           ((op1 >> 31) != (op2 >> 31)) && ((op1 >> 31) != (res >> 31)));
+    break;
   case 0xE:
+    // BIC
     res = op1 & ~op2;
     set_reg(rd, res);
     set_cc(FLAG::N, res >> 31);
@@ -265,6 +275,34 @@ void CPU::thumb_ppr(uint16_t instr) {
   bool opcode = (instr >> 11) & 0x1;
   bool pc_lr = (instr >> 8) & 0x1;
   uint8_t reg_list = (instr & 0xff);
+
+  bus->set_last_cycle_type(CYCLE_TYPE::NON_SEQ);
+  if (opcode) {
+    for (int i = 0; i < 8; i++) {
+      if ((reg_list >> i) & 0x1) {
+        set_reg(i, bus->read32(get_reg(13), CYCLE_TYPE::NON_SEQ));
+        set_reg(13, get_reg(13) + 4);
+      }
+    }
+    if (pc_lr) {
+      set_reg(15, bus->read32(get_reg(13), CYCLE_TYPE::NON_SEQ) & ~0x1);
+      set_reg(13, get_reg(13) + 4);
+      thumb_fetch();
+    }
+    cycle(1);
+  } else {
+    if (pc_lr) {
+      set_reg(13, get_reg(13) - 4);
+      bus->write32(get_reg(13), get_reg(14), CYCLE_TYPE::NON_SEQ);
+    }
+    for (int i = 7; i >= 0; i--) {
+      if ((reg_list >> i) & 0x1) {
+        set_reg(13, get_reg(13) - 4);
+        bus->write32(get_reg(13), get_reg(i), CYCLE_TYPE::NON_SEQ);
+      }
+    }
+    bus->set_last_cycle_type(CYCLE_TYPE::NON_SEQ);
+  }
 };
 void CPU::thumb_mls(uint16_t instr) {
   bool l = (instr >> 11) & 0x1;
@@ -333,7 +371,7 @@ void CPU::thumb_lbl(uint16_t instr) {
   bool h = (instr >> 11) & 0x1;
   uint32_t offset = instr & 0x7ff;
   if (!h) {
-    if ((offset & 0x400) == 0x1) {
+    if ((offset >> 10) == 0x1) {
       offset |= 0xFFFFF800;
     }
     set_reg(14, get_reg(15) + (offset << 12));

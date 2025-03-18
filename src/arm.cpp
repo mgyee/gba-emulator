@@ -361,7 +361,77 @@ void CPU::arm_sdt(uint32_t instr) {
 
 void CPU::arm_sds(uint32_t instr) {}
 
-void CPU::arm_mul(uint32_t instr) {}
+void CPU::arm_mul(uint32_t instr) {
+  uint8_t opcode = (instr >> 21) & 0xf;
+  bool s = (instr >> 20) & 0x1;
+  uint8_t rd = (instr >> 16) & 0xf;
+  uint8_t rn = (instr >> 12) & 0xf;
+  uint8_t rs = (instr >> 8) & 0xf;
+  bool y = (instr >> 6) & 0x1;
+  bool x = (instr >> 5) & 0x1;
+  uint8_t rm = instr & 0xf;
+
+  uint32_t rs_val = get_reg(rs);
+
+  uint8_t m = 1;
+
+  uint32_t tmp = rs ^ ((int32_t)rs >> 31);
+  m += (tmp > 0xff);
+  m += (tmp > 0xffff);
+  m += (tmp > 0xffffff);
+
+  uint32_t res;
+  uint64_t double_res;
+  int64_t signed_double_res;
+
+  switch (opcode) {
+  case 0x0:
+    // MUL
+    res = get_reg(rn) * get_reg(rm);
+    set_reg(rd, res);
+    if (s) {
+      set_cc(FLAG::N, res >> 31);
+      set_cc(FLAG::Z, res == 0);
+    }
+    break;
+  case 0x1:
+    // MLA
+    res = get_reg(rm) * get_reg(rs) + get_reg(rn);
+    set_reg(rd, res);
+    if (s) {
+      set_cc(FLAG::N, res >> 31);
+      set_cc(FLAG::Z, res == 0);
+    }
+    cycle(1);
+    break;
+  case 0x4:
+    // UMULL
+    double_res = get_reg(rm) * get_reg(rs);
+    set_reg(rn, double_res & 0xffffffff);
+    set_reg(rd, double_res >> 32);
+    if (s) {
+      set_cc(FLAG::N, double_res >> 63);
+      set_cc(FLAG::Z, double_res == 0);
+    }
+    cycle(1);
+    break;
+  case 0x6:
+    // SMULL
+    signed_double_res = (int32_t)get_reg(rm) * (int32_t)get_reg(rs);
+    set_reg(rn, signed_double_res & 0xffffffff);
+    set_reg(rd, signed_double_res >> 32);
+    if (s) {
+      set_cc(FLAG::N, signed_double_res >> 63);
+      set_cc(FLAG::Z, signed_double_res == 0);
+    }
+    cycle(1);
+    break;
+  default:
+    NYI("mul");
+    break;
+  }
+  cycle(m);
+}
 
 void CPU::arm_hdtri(uint32_t instr) {
   bool p = (instr >> 24) & 0x1; // pre/post
