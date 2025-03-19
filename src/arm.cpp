@@ -1,105 +1,85 @@
 #include "bus.h"
 #include "cpu.h"
 #include <cstdint>
-#include <iostream>
+
+inline bool compare_instr(uint32_t instr, uint32_t mask, uint32_t format) {
+  return (instr & mask) == format;
+}
 
 bool CPU::arm_is_bx(uint32_t instr) {
-  uint32_t bx_format = 0b00000001001011111111111100010000;
-  uint32_t mask = 0b00001111111111111111111111110000;
-  uint32_t format = instr & mask;
-  return format == bx_format;
+  constexpr uint32_t bx_format = 0b00000001001011111111111100010000;
+  constexpr uint32_t mask = 0b00001111111111111111111111110000;
+  return compare_instr(instr, mask, bx_format);
 }
 
 bool CPU::arm_is_bdt(uint32_t instr) {
-  uint32_t bdt_format = 0b00001000000000000000000000000000;
-  uint32_t mask = 0b00001110000000000000000000000000;
-  uint32_t format = instr & mask;
-  return format == bdt_format;
+  constexpr uint32_t bdt_format = 0b00001000000000000000000000000000;
+  constexpr uint32_t mask = 0b00001110000000000000000000000000;
+  return compare_instr(instr, mask, bdt_format);
 }
 
 bool CPU::arm_is_bl(uint32_t instr) {
-  uint32_t b_format = 0b00001010000000000000000000000000;
-  uint32_t bl_format = 0b00001011000000000000000000000000;
-  uint32_t mask = 0b00001111000000000000000000000000;
-  uint32_t format = instr & mask;
-  return format == b_format || format == bl_format;
+  constexpr uint32_t b_format = 0b00001010000000000000000000000000;
+  constexpr uint32_t bl_format = 0b00001011000000000000000000000000;
+  constexpr uint32_t mask = 0b00001111000000000000000000000000;
+  return compare_instr(instr, mask, b_format) ||
+         compare_instr(instr, mask, bl_format);
 }
 
 bool CPU::arm_is_swi(uint32_t instr) {
-  uint32_t swi_format = 0b00001111000000000000000000000000;
-  uint32_t mask = 0b00001111000000000000000000000000;
-  uint32_t format = instr & mask;
-  return format == swi_format;
+  constexpr uint32_t swi_format = 0b00001111000000000000000000000000;
+  constexpr uint32_t mask = 0b00001111000000000000000000000000;
+  return compare_instr(instr, mask, swi_format);
 }
 
 bool CPU::arm_is_und(uint32_t instr) {
-  uint32_t und_format = 0b00000110000000000000000000010000;
-  uint32_t mask = 0b00001110000000000000000000010000;
-  uint32_t format = instr & mask;
-  return format == und_format;
+  constexpr uint32_t und_format = 0b00000110000000000000000000010000;
+  constexpr uint32_t mask = 0b00001110000000000000000000010000;
+  return compare_instr(instr, mask, und_format);
 }
 
 bool CPU::arm_is_sdt(uint32_t instr) {
-  uint32_t sdt_format = 0b00000100000000000000000000000000;
+  constexpr uint32_t sdt_format = 0b00000100000000000000000000000000;
   uint32_t mask = 0b00001100000000000000000000000000;
-  uint32_t format = instr & mask;
-  return format == sdt_format;
+  return compare_instr(instr, mask, sdt_format);
 }
 
 bool CPU::arm_is_sds(uint32_t instr) {
-  uint32_t sds_format = 0b00000001000000000000000010010000;
-  uint32_t mask = 0b00001111100000000000111111110000;
-  uint32_t format = instr & mask;
-  return format == sds_format;
+  constexpr uint32_t sds_format = 0b00000001000000000000000010010000;
+  constexpr uint32_t mask = 0b00001111100000000000111111110000;
+  return compare_instr(instr, mask, sds_format);
 }
 
 bool CPU::arm_is_mul(uint32_t instr) {
-  uint32_t mul_format = 0b00000000000000000000000010010000;
-  uint32_t mull_format = 0b00000000100000000000000010010000;
-  uint32_t mask = 0b00001111100000000000000011110000;
-  uint32_t format = instr & mask;
-  return format == mul_format || format == mull_format;
+  constexpr uint32_t mul_format = 0b00000000000000000000000010010000;
+  constexpr uint32_t mull_format = 0b00000000100000000000000010010000;
+  constexpr uint32_t mask = 0b00001111100000000000000011110000;
+  return compare_instr(instr, mask, mul_format) ||
+         compare_instr(instr, mask, mull_format);
 }
 
 bool CPU::arm_is_hdtri(uint32_t instr) {
-  uint32_t hdtr_format = 0b00000000000000000000000010010000;
-  uint32_t hdtr_mask = 0b00001110010000000000111110010000;
-  uint32_t format1 = instr & hdtr_mask;
-  uint32_t hdti_format = 0b00000000010000000000000010010000;
-  uint32_t hdti_mask = 0b00001110010000000000000010010000;
-  uint32_t format2 = instr & hdti_mask;
-  return format1 == hdtr_format || format2 == hdti_format;
+  constexpr uint32_t hdtr_format = 0b00000000000000000000000010010000;
+  constexpr uint32_t hdtr_mask = 0b00001110010000000000111110010000;
+  constexpr uint32_t hdti_format = 0b00000000010000000000000010010000;
+  constexpr uint32_t hdti_mask = 0b00001110010000000000000010010000;
+  return compare_instr(instr, hdtr_mask, hdtr_format) ||
+         compare_instr(instr, hdti_mask, hdti_format);
 }
-
-// bool CPU::is_hdti(uint32_t instr) {
-//   uint32_t hdti_format = 0b00000000010000000000000010010000;
-//   uint32_t mask = 0b00001110010000000000000010010000;
-//   uint32_t format = instr & mask;
-//   return format == hdti_format;
-// }
 
 bool CPU::arm_is_psrt(uint32_t instr) {
-  uint32_t mrs_format = 0b00000001000011110000000000000000;
-  uint32_t mrs_mask = 0b00001111101111110000000000000000;
-  uint32_t msr_format = 0b00000001001000001111000000000000;
-  uint32_t msr_mask = 0b00001101101100001111000000000000;
-  uint32_t format1 = instr & mrs_mask;
-  uint32_t format2 = instr & msr_mask;
-  return format1 == mrs_format || format2 == msr_format;
+  constexpr uint32_t mrs_format = 0b00000001000011110000000000000000;
+  constexpr uint32_t mrs_mask = 0b00001111101111110000000000000000;
+  constexpr uint32_t msr_format = 0b00000001001000001111000000000000;
+  constexpr uint32_t msr_mask = 0b00001101101100001111000000000000;
+  return compare_instr(instr, mrs_mask, mrs_format) ||
+         compare_instr(instr, msr_mask, msr_format);
 }
 
-// bool CPU::is_psrtmsr(uint32_t instr) {
-//   uint32_t pmrs_format = 0b00000001001000001111000000000000;
-//   uint32_t mask = 0b00001101101100001111000000000000;
-//   uint32_t format = instr & mask;
-//   return format == pmrs_format;
-// }
-
 bool CPU::arm_is_dproc(uint32_t instr) {
-  uint32_t dproc_format = 0b00000000000000000000000000000000;
-  uint32_t mask = 0b00001100000000000000000000000000;
-  uint32_t format = instr & mask;
-  return format == dproc_format;
+  constexpr uint32_t dproc_format = 0b00000000000000000000000000000000;
+  constexpr uint32_t mask = 0b00001100000000000000000000000000;
+  return compare_instr(instr, mask, dproc_format);
 }
 
 bool CPU::barrel_shift(uint32_t &val, SHIFT shift_type, uint8_t shift_amount,
@@ -288,7 +268,13 @@ void CPU::arm_bl(uint32_t instr) {
   arm_fetch(); // 1N + 1S, next fetch -> +1S
 }
 
-void CPU::arm_swi(uint32_t instr) {}
+void CPU::arm_swi(uint32_t instr) {
+  regs_svc[1] = regs[15] - 4;
+  spsr_svc = cpsr;
+  set_mode(MODE::SVC);
+  set_reg(15, 0x00000008);
+  arm_fetch();
+}
 
 void CPU::arm_und(uint32_t instr) {}
 

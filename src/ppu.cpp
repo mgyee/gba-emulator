@@ -55,9 +55,10 @@ void PPU::sdl_quit() {
   SDL_Quit();
 }
 
-void PPU::tick() {
-  if (dots == 1232) {
-    dots = 0;
+void PPU::tick(uint32_t cycles) {
+  dots += cycles;
+  if (dots >= 1232) {
+    dots -= 1232;
     if (lcd.vcount.bits.scanline < SCREEN_HEIGHT) {
       render_scanline(lcd.vcount.bits.scanline);
     }
@@ -75,8 +76,6 @@ void PPU::tick() {
       lcd.dispstat.bits.vblank = 0;
       lcd.vcount.bits.scanline = 0;
     }
-  } else {
-    dots++;
   }
 }
 

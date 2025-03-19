@@ -339,3 +339,141 @@ struct LCD {
     uint16_t halfwords[3];
   } oamdata;
 };
+
+struct KEYPAD {
+  union {
+    struct {
+      bool a : 1;      // Button A        (0=Pressed, 1=Released)
+      bool b : 1;      // Button B        (etc.)
+      bool select : 1; // Select          (etc.)
+      bool start : 1;  // Start           (etc.)
+      bool right : 1;  // Right           (etc.)
+      bool left : 1;   // Left            (etc.)
+      bool up : 1;     // Up              (etc.)
+      bool down : 1;   // Down            (etc.)
+      bool r : 1;      // Button R        (etc.)
+      bool l : 1;      // Button L        (etc.)
+      uint8_t : 6;     // Not used
+    } bits;
+    uint8_t bytes[2];
+    uint16_t full;
+  } keyinput;
+
+  // REG_KEYCNT
+  union {
+    struct {
+      bool a : 1;         // Button A        (0=Ignore, 1=Select)
+      bool b : 1;         // Button B        (etc.)
+      bool select : 1;    // Select          (etc.)
+      bool start : 1;     // Start           (etc.)
+      bool right : 1;     // Right           (etc.)
+      bool left : 1;      // Left            (etc.)
+      bool up : 1;        // Up              (etc.)
+      bool down : 1;      // Down            (etc.)
+      bool r : 1;         // Button R        (etc.)
+      bool l : 1;         // Button L        (etc.)
+      uint8_t : 4;        // Not used
+      bool irqEnable : 1; // Button IRQ Enable      (0=Disable, 1=Enable)
+      bool irqCond : 1; // Button IRQ Condition   (0=Logical OR, 1=Logical AND)
+    } bits;
+    uint8_t bytes[2];
+    uint16_t full;
+  } keycnt;
+};
+
+struct IWPDC {
+  union {
+    struct {
+      bool disable : 1; // (0=Disable All, 1=See IE register)
+      uint32_t : 31;    // Not used
+    } bits;
+    uint8_t bytes[4];
+    uint16_t halfwords[2];
+    uint32_t full;
+  } ime;
+
+  union {
+    struct {
+      bool vblank : 1;   // LCD V-Blank                    (0=Disable)
+      bool hblank : 1;   // LCD H-Blank                    (etc.)
+      bool vcounter : 1; // LCD V-Counter Match            (etc.)
+      bool timer0 : 1;   // Timer 0 Overflow               (etc.)
+      bool timer1 : 1;   // Timer 1 Overflow               (etc.)
+      bool timer2 : 1;   // Timer 2 Overflow               (etc.)
+      bool timer3 : 1;   // Timer 3 Overflow               (etc.)
+      bool comm : 1;     // Serial Communication           (etc.)
+      bool dma0 : 1;     // DMA 0                          (etc.)
+      bool dma1 : 1;     // DMA 1                          (etc.)
+      bool dma2 : 1;     // DMA 2                          (etc.)
+      bool dma3 : 1;     // DMA 3                          (etc.)
+      bool keypad : 1;   // Keypad                         (etc.)
+      bool gamepak : 1;  // Game Pak (external IRQ source) (etc.)
+      uint8_t : 2;       // Not used
+    } bits;
+    uint8_t bytes[2];
+    uint16_t full;
+  } ie;
+
+  union {
+    struct {
+      bool vblank : 1;   // LCD V-Blank                    (1=Request Interrupt)
+      bool hblank : 1;   // LCD H-Blank                    (etc.)
+      bool vcounter : 1; // LCD V-Counter Match            (etc.)
+      bool timer0 : 1;   // Timer 0 Overflow               (etc.)
+      bool timer1 : 1;   // Timer 1 Overflow               (etc.)
+      bool timer2 : 1;   // Timer 2 Overflow               (etc.)
+      bool timer3 : 1;   // Timer 3 Overflow               (etc.)
+      bool comm : 1;     // Serial Communication           (etc.)
+      bool dma0 : 1;     // DMA 0                          (etc.)
+      bool dma1 : 1;     // DMA 1                          (etc.)
+      bool dma2 : 1;     // DMA 2                          (etc.)
+      bool dma3 : 1;     // DMA 3                          (etc.)
+      bool keypad : 1;   // Keypad                         (etc.)
+      bool gamepak : 1;  // Game Pak (external IRQ source) (etc.)
+      uint8_t : 2;       // Not used
+    } bits;
+    uint8_t bytes[2];
+    uint16_t full;
+  } i_f;
+
+  union {
+    struct {
+      uint8_t sram : 2; // SRAM Wait Control          (0..3 = 4,3,2,8 cycles)
+      uint8_t ws01 : 2; // Wait State 0 First Access  (0..3 = 4,3,2,8 cycles)
+      bool ws02 : 1;    // Wait State 0 Second Access (0..1 = 2,1 cycles)
+      uint8_t ws11 : 2; // Wait State 1 First Access  (0..3 = 4,3,2,8 cycles)
+      bool ws12 : 1;    // Wait State 1 Second Access (0..1 = 4,1 cycles; unlike
+                        // above WS0)
+      uint8_t ws21 : 2; // Wait State 2 First Access  (0..3 = 4,3,2,8 cycles)
+      bool ws22 : 1;    // Wait State 2 Second Access (0..1 = 8,1 cycles; unlike
+                        // above WS0,WS1)
+      uint8_t phi : 2;  // PHI Terminal Output        (0..3 =
+                        // Disable, 4.19MHz, 8.38MHz, 16.78MHz)
+      bool : 1;         // Not used
+      bool prefetch : 1; // Game Pak Prefetch Buffer (Pipe) (0=Disable,
+                         // 1=Enable)
+      bool type : 1;     // Game Pak Type Flag  (Read Only) (0=GBA, 1=CGB) (IN35
+                         // signal)
+      uint16_t : 16;     // Not used
+    } bits;
+    uint8_t bytes[4];
+    uint16_t halfwords[2];
+    uint32_t full;
+  } waitcnt;
+
+  union {
+    struct {
+      bool flag : 1; // Undocumented. First Boot Flag  (0=First, 1=Further)
+      uint8_t : 7;   // Undocumented. Not used.
+    } bits;
+    uint8_t full;
+  } postflag;
+
+  union {
+    struct {
+      uint8_t : 7;        // Undocumented. Not used.
+      bool powerDown : 1; // Undocumented. Power Down Mode  (0=Halt, 1=Stop)
+    } bits;
+    uint8_t full;
+  } haltcnt;
+};

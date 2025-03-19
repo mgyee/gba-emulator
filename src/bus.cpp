@@ -1,12 +1,12 @@
 #include "bus.h"
 #include <cstdio>
 
-Bus::Bus(CPU &cpu) : cpu(cpu) {};
+Bus::Bus(CPU &cpu) : cpu(cpu) { keypad.keyinput.full = 0xffff; };
 
 Bus::~Bus() { delete ppu; }
 
 void Bus::attach_ppu(PPU *ppu) { this->ppu = ppu; }
-void Bus::tick_ppu() { ppu->tick(); }
+// void Bus::tick_ppu() { ppu->tick(); }
 
 bool Bus::load_bios(const char *bios_file) {
   FILE *fp = fopen(bios_file, "rb");
@@ -102,10 +102,10 @@ void Bus::write32(uint32_t addr, uint32_t data, CPU::CYCLE_TYPE type) {
     *reinterpret_cast<uint32_t *>(iwram + (addr & 0x7fff)) = data;
     break;
   case 0x04:
-    write8_mmio(addr + 0, ((data) >> 0) & 0xff);
-    write8_mmio(addr + 1, ((data) >> 8) & 0xff);
-    write8_mmio(addr + 2, ((data) >> 16) & 0xff);
-    write8_mmio(addr + 3, ((data) >> 24) & 0xff);
+    write_mmio(addr + 0, ((data) >> 0) & 0xff);
+    write_mmio(addr + 1, ((data) >> 8) & 0xff);
+    write_mmio(addr + 2, ((data) >> 16) & 0xff);
+    write_mmio(addr + 3, ((data) >> 24) & 0xff);
     break;
   case 0x05:
     *reinterpret_cast<uint32_t *>(palram + (addr & 0x3ff)) = data;
@@ -147,8 +147,8 @@ void Bus::write16(uint32_t addr, uint16_t data, CPU::CYCLE_TYPE type) {
     *reinterpret_cast<uint16_t *>(iwram + (addr & 0x7fff)) = data;
     break;
   case 0x04:
-    write8_mmio(addr + 0, ((data) >> 0) & 0xff);
-    write8_mmio(addr + 1, ((data) >> 8) & 0xff);
+    write_mmio(addr + 0, ((data) >> 0) & 0xff);
+    write_mmio(addr + 1, ((data) >> 8) & 0xff);
     break;
   case 0x05:
     *reinterpret_cast<uint16_t *>(palram + (addr & 0x3ff)) = data;
@@ -185,7 +185,7 @@ void Bus::write8(uint32_t addr, uint8_t data, CPU::CYCLE_TYPE type) {
     *reinterpret_cast<uint8_t *>(iwram + (addr & 0x7fff)) = data;
     break;
   case 0x04:
-    write8_mmio(addr + 0, ((data) >> 0) & 0xff);
+    write_mmio(addr + 0, ((data) >> 0) & 0xff);
     break;
   case 0x05:
     *reinterpret_cast<uint8_t *>(palram + (addr & 0x3ff)) = data;
@@ -231,8 +231,8 @@ uint32_t Bus::read32(uint32_t addr, CPU::CYCLE_TYPE type) {
     data = *reinterpret_cast<uint32_t *>(iwram + (addr & 0x7fff));
     break;
   case 0x04: // MMIO
-    data = (read8_mmio(addr + 0) << 0) | (read8_mmio(addr + 1) << 8) |
-           (read8_mmio(addr + 2) << 16) | (read8_mmio(addr + 3) << 24);
+    data = (read_mmio(addr + 0) << 0) | (read_mmio(addr + 1) << 8) |
+           (read_mmio(addr + 2) << 16) | (read_mmio(addr + 3) << 24);
     break;
   case 0x05: // PALRAM
     data = *reinterpret_cast<uint32_t *>(palram + (addr & 0x3ff));
@@ -286,7 +286,7 @@ uint16_t Bus::read16(uint32_t addr, CPU::CYCLE_TYPE type) {
     data = *reinterpret_cast<uint16_t *>(iwram + (addr & 0x7fff));
     break;
   case 0x04: // MMIO
-    data = (read8_mmio(addr + 0) << 0) | (read8_mmio(addr + 1) << 8);
+    data = (read_mmio(addr + 0) << 0) | (read_mmio(addr + 1) << 8);
     break;
   case 0x05: // PALRAM
     data = *reinterpret_cast<uint16_t *>(palram + (addr & 0x3ff));
@@ -339,7 +339,7 @@ uint8_t Bus::read8(uint32_t addr, CPU::CYCLE_TYPE type) {
     data = *reinterpret_cast<uint8_t *>(iwram + (addr & 0x7fff));
     break;
   case 0x04: // MMIO
-    data = (read8_mmio(addr + 0) << 0);
+    data = (read_mmio(addr + 0) << 0);
     break;
   case 0x05: // PALRAM
     data = *reinterpret_cast<uint8_t *>(palram + (addr & 0x3ff));
@@ -379,7 +379,7 @@ uint32_t Bus::read_open_bus(uint32_t addr) { return 0; }
 
 uint32_t Bus::read_sram(uint32_t addr) { return 0; }
 
-void Bus::write8_mmio(uint32_t addr, uint8_t data) {
+void Bus::write_mmio(uint32_t addr, uint8_t data) {
   switch (addr) {
   /* LCD I/O Registers */
   case REG_DISPCNT:
@@ -638,9 +638,34 @@ void Bus::write8_mmio(uint32_t addr, uint8_t data) {
     break;
   }
 }
-uint8_t Bus::read8_mmio(uint32_t addr) {
+
+uint8_t Bus::read_mmio(uint32_t addr) {
+  if (addr >= REG_DISPCNT && addr <= REG_BLDY + 1) {
+    return read_lcd(addr);
+  } else if (addr >= REG_KEYINPUT && addr <= REG_KEYCNT + 1) {
+    return read_keypad(addr);
+  } else {
+    return 0;
+  }
+}
+
+uint8_t Bus::read_keypad(uint32_t addr) {
   switch (addr) {
-  /* LCD I/O Registers */
+  case REG_KEYINPUT:
+    return (keypad.keyinput.bytes[0]);
+  case REG_KEYINPUT + 1:
+    return (keypad.keyinput.bytes[1]);
+  case REG_KEYCNT:
+    return (keypad.keycnt.bytes[0]);
+  case REG_KEYCNT + 1:
+    return (keypad.keycnt.bytes[1]);
+  default:
+    return 0;
+  }
+}
+
+uint8_t Bus::read_lcd(uint32_t addr) {
+  switch (addr) {
   case REG_DISPCNT:
     return (ppu->lcd.dispcnt.bytes[0]);
   case REG_DISPCNT + 1:

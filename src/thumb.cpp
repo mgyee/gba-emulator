@@ -269,7 +269,17 @@ void CPU::thumb_lsio(uint16_t instr) {
 };
 void CPU::thumb_lsh(uint16_t instr) { NYI("lsh"); };
 void CPU::thumb_sprls(uint16_t instr) { NYI("sprls"); };
-void CPU::thumb_la(uint16_t instr) { NYI("la"); };
+void CPU::thumb_la(uint16_t instr) {
+  bool opcode = (instr >> 11) & 0x1;
+  uint8_t rd = (instr >> 8) & 0x7;
+  uint8_t offset = instr & 0xff;
+
+  if (opcode) {
+    set_reg(rd, get_reg(13) + (offset << 2));
+  } else {
+    set_reg(rd, (get_reg(15) & ~2) + (offset << 2));
+  }
+};
 void CPU::thumb_aosp(uint16_t instr) { NYI("aosp"); };
 void CPU::thumb_ppr(uint16_t instr) {
   bool opcode = (instr >> 11) & 0x1;
@@ -365,7 +375,13 @@ void CPU::thumb_cb(uint16_t instr) {
     thumb_fetch();
   }
 };
-void CPU::thumb_swi(uint16_t instr) { NYI("swi"); };
+void CPU::thumb_swi(uint16_t instr) {
+  regs_svc[1] = get_reg(15) - 2;
+  spsr_svc = cpsr;
+  cpsr = (cpsr & 0xffffff00) + 0x93;
+  set_reg(15, 0x00000008);
+  arm_fetch();
+};
 void CPU::thumb_ub(uint16_t instr) { NYI("ub"); };
 void CPU::thumb_lbl(uint16_t instr) {
   bool h = (instr >> 11) & 0x1;

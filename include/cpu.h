@@ -29,6 +29,14 @@ public:
   void set_reg(uint8_t rn, uint32_t val);
 
   void cycle(uint32_t count);
+  // inline void CPU::cycle(uint32_t count) {
+  //   for (uint32_t i = 0; i < count; i++) {
+  //     // if (cycles % 64 == 0) {
+  //     bus->tick_ppu();
+  //     // }
+  //     cycles++;
+  //   }
+  // }
 
 private:
   // instr[31:28]
@@ -107,13 +115,74 @@ private:
   uint32_t pipeline[2];
   uint32_t cycles;
 
-  MODE get_mode();
+  inline MODE get_mode() { return static_cast<MODE>(cpsr & CONTROL::M); }
+  inline void set_mode(MODE mode) {
+    cpsr &= ~CONTROL::M;
+    cpsr |= mode;
+  }
 
-  uint32_t get_psr();
-  void set_psr(uint32_t val);
+  inline uint32_t get_psr() {
+    switch (get_mode()) {
+    case USR:
+    case SYS:
+      return cpsr;
+    case FIQ:
+      return spsr_fiq;
+    case IRQ:
+      return spsr_irq;
+    case SVC:
+      return spsr_svc;
+    case ABT:
+      return spsr_abt;
+    case UND:
+      return spsr_und;
+    default:
+      return 0;
+    }
+  }
 
-  bool get_cc(FLAG f);
-  void set_cc(FLAG f, bool val);
+  inline void set_psr(uint32_t val) {
+    switch (get_mode()) {
+    case USR:
+    case SYS:
+      cpsr = val;
+      break;
+    case FIQ:
+      spsr_fiq = val;
+      break;
+    case IRQ:
+      spsr_irq = val;
+      break;
+    case SVC:
+      spsr_svc = val;
+      break;
+    case ABT:
+      spsr_abt = val;
+      break;
+    case UND:
+      spsr_und = val;
+      break;
+    default:
+      break;
+    }
+  }
+
+  // uint32_t get_psr();
+  // void set_psr(uint32_t val);
+
+  inline bool get_cc(FLAG f) { return get_psr() & f; }
+  inline void set_cc(FLAG f, bool val) {
+    uint32_t psr = get_psr();
+    if (val) {
+      psr |= f;
+    } else {
+      psr &= ~f;
+    }
+    set_psr(psr);
+  }
+
+  // bool get_cc(FLAG f);
+  // void set_cc(FLAG f, bool val);
 
   void reset();
 

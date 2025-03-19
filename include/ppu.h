@@ -13,7 +13,7 @@ public:
   PPU(Bus &bus);
   ~PPU();
 
-  void tick();
+  void tick(uint32_t cycles);
 
   bool sdl_init();
 
