@@ -23,16 +23,11 @@ void CPU::start(const char *rom_file, const char *bios_file) {
 }
 
 void CPU::run() {
-  auto start_time = std::chrono::steady_clock::now();
   while (running) {
-    auto now = std::chrono::steady_clock::now();
-    auto elapsed_time =
-        std::chrono::duration_cast<std::chrono::microseconds>(now - start_time)
-            .count();
+    auto start_time = std::chrono::steady_clock::now();
     cycles = 0;
-    uint32_t expected_cycles = elapsed_time * (2 << 24) / 1000000;
     // std::this_thread::sleep_for(std::chrono::nanoseconds(10));
-    while (cycles < expected_cycles && running) {
+    while (cycles < (2 << 24) && running) {
       SDL_Event event;
       while (SDL_PollEvent(&event)) {
         if (event.type == SDL_QUIT) {
@@ -143,7 +138,17 @@ void CPU::run() {
         // }
       }
     }
-    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+
+    auto now = std::chrono::steady_clock::now();
+    auto elapsed_time =
+        std::chrono::duration_cast<std::chrono::microseconds>(now - start_time)
+            .count();
+    auto sleep_time = std::chrono::microseconds(1000000) -
+                      std::chrono::microseconds(elapsed_time);
+    // std::cout << "elapsed: " << sleep_time << std::endl;
+    if (sleep_time.count() > 0) {
+      std::this_thread::sleep_for(sleep_time);
+    }
   }
 }
 
