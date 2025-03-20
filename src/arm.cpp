@@ -84,11 +84,15 @@ bool CPU::arm_is_dproc(uint32_t instr) {
 
 bool CPU::barrel_shift(uint32_t &val, SHIFT shift_type, uint8_t shift_amount,
                        bool shift_by_reg) {
-  bool carry_out = false;
+  bool carry_out = get_cc(C);
+
+  if (shift_by_reg && shift_amount == 0) {
+    return carry_out;
+  }
+
   switch (shift_type) {
   case LSL:
     if (shift_amount == 0) {
-      carry_out = (cpsr & C) == C;
     } else if (shift_amount == 32) {
       carry_out = val & 0x1;
       val = 0;
@@ -120,13 +124,12 @@ bool CPU::barrel_shift(uint32_t &val, SHIFT shift_type, uint8_t shift_amount,
     break;
   case ROR:
     if (!shift_by_reg && shift_amount == 0) {
-      bool carry_in = (cpsr & C) == C;
+      uint32_t carry_in = carry_out;
       carry_out = val & 0x1;
       val = val >> 1 | carry_in << 31;
     } else {
-      carry_out = val & 0x1;
-      shift_amount %= 32;
-      val = (val >> shift_amount) | (val << (32 - shift_amount));
+      val = (val >> (shift_amount & 0x1f)) | (val << ((-shift_amount) & 0x1f));
+      carry_out = val >> 31;
     }
     break;
   default:
@@ -314,8 +317,8 @@ void CPU::arm_sdt(uint32_t instr) {
     if (b) {
       val = bus->read8(addr, CYCLE_TYPE::NON_SEQ);
     } else {
-      // barrel_shift(addr, SHIFT::ROR, (addr & 0x3) * 8, true);
       val = bus->read32(addr, CYCLE_TYPE::NON_SEQ);
+      barrel_shift(val, SHIFT::ROR, (addr & 0x3) * 8, true);
     }
     set_reg(rd, val);
   } else {
@@ -392,7 +395,7 @@ void CPU::arm_mul(uint32_t instr) {
     break;
   case 0x4:
     // UMULL
-    double_res = get_reg(rm) * get_reg(rs);
+    double_res = (uint64_t)get_reg(rm) * (uint64_t)get_reg(rs);
     set_reg(rn, double_res & 0xffffffff);
     set_reg(rd, double_res >> 32);
     if (s) {
@@ -403,7 +406,8 @@ void CPU::arm_mul(uint32_t instr) {
     break;
   case 0x6:
     // SMULL
-    signed_double_res = (int32_t)get_reg(rm) * (int32_t)get_reg(rs);
+    signed_double_res =
+        (int64_t)(int32_t)get_reg(rm) * (int64_t)(int32_t)get_reg(rs);
     set_reg(rn, signed_double_res & 0xffffffff);
     set_reg(rd, signed_double_res >> 32);
     if (s) {
@@ -438,7 +442,6 @@ void CPU::arm_hdtri(uint32_t instr) {
   } else {
     uint8_t rm = instr & 0xf;
     offset = get_reg(rm);
-    // barrel_shift(offset, SHIFT::ROR, (offset & 0x3) * 8, true);
   }
 
   if (!u) {
@@ -515,6 +518,7 @@ void CPU::arm_psrt(uint32_t instr) {
   bool opcode = (instr >> 21) & 0x1; // msr/mrs
 
   if (opcode) {
+    // msr
     bool f = (instr >> 19) & 0x1; // flag
     bool s = (instr >> 18) & 0x1; // status
     bool x = (instr >> 17) & 0x1; // extension

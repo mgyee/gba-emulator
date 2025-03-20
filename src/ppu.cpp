@@ -56,27 +56,27 @@ void PPU::sdl_quit() {
 }
 
 void PPU::tick(uint32_t cycles) {
-  dots += cycles;
-  if (dots >= 1232) {
-    dots -= 1232;
-    if (lcd.vcount.bits.scanline < SCREEN_HEIGHT) {
-      render_scanline(lcd.vcount.bits.scanline);
-    }
-
-    lcd.vcount.bits.scanline++;
-
-    if (lcd.vcount.bits.scanline == SCREEN_HEIGHT) {
-      lcd.dispstat.bits.vblank = 1;
-      SDL_UpdateTexture(texture, NULL, frame, pitch);
-      SDL_RenderCopy(renderer, texture, NULL, NULL);
-      SDL_RenderPresent(renderer);
-    }
-
-    if (lcd.vcount.bits.scanline == 228) {
-      lcd.dispstat.bits.vblank = 0;
-      lcd.vcount.bits.scanline = 0;
-    }
+  // dots += cycles;
+  // if (dots >= 1232) {
+  //   dots -= 1232;
+  if (lcd.vcount.bits.scanline < SCREEN_HEIGHT) {
+    render_scanline(lcd.vcount.bits.scanline);
   }
+
+  lcd.vcount.bits.scanline++;
+
+  if (lcd.vcount.bits.scanline == SCREEN_HEIGHT) {
+    lcd.dispstat.bits.vblank = 1;
+    SDL_UpdateTexture(texture, NULL, frame, pitch);
+    SDL_RenderCopy(renderer, texture, NULL, NULL);
+    SDL_RenderPresent(renderer);
+  }
+
+  if (lcd.vcount.bits.scanline == 228) {
+    lcd.dispstat.bits.vblank = 0;
+    lcd.vcount.bits.scanline = 0;
+  }
+  // }
 }
 
 void PPU::render_scanline(uint32_t y) {

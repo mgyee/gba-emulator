@@ -2,6 +2,9 @@
 #include "bus.h"
 #include <chrono>
 #include <thread>
+#include <vector>
+
+#include <fstream>
 
 CPU::CPU() {};
 
@@ -23,6 +26,11 @@ void CPU::start(const char *rom_file, const char *bios_file) {
 }
 
 void CPU::run() {
+
+  std::ofstream instrFile;
+  instrFile.open("instr.bin", std::ios::binary);
+  std::ofstream logFile;
+  logFile.open("regs.bin", std::ios::binary);
   while (running) {
     // std::this_thread::sleep_for(std::chrono::nanoseconds(10));
     SDL_Event event;
@@ -40,6 +48,23 @@ void CPU::run() {
       if (cpsr & CONTROL::T) {
         uint16_t instr = thumb_fetch_next();
         // std::cout << std::hex << regs[15] - 4 << ": " << instr << std::endl;
+        uint32_t temp = instr;
+        instrFile.write(reinterpret_cast<const char *>(&temp),
+                        sizeof(uint32_t));
+        std::vector<uint32_t> logData;
+
+        // Add general-purpose registers (r0 - r15)
+        for (int i = 0; i < 16; i++) {
+          logData.push_back(get_reg(i));
+        }
+
+        // Add CPSR and SPSR
+        logData.push_back(cpsr);
+        logData.push_back(get_psr());
+
+        // Write to file as raw binary (little-endian)
+        logFile.write(reinterpret_cast<const char *>(logData.data()),
+                      logData.size() * sizeof(uint32_t));
 
         static constexpr struct {
           uint16_t mask;                  // Bitmask for matching
@@ -76,6 +101,24 @@ void CPU::run() {
         }
       } else {
         uint32_t instr = arm_fetch_next();
+
+        instrFile.write(reinterpret_cast<const char *>(&instr),
+                        sizeof(uint32_t));
+
+        std::vector<uint32_t> logData;
+
+        // Add general-purpose registers (r0 - r15)
+        for (int i = 0; i < 16; i++) {
+          logData.push_back(get_reg(i));
+        }
+
+        // Add CPSR and SPSR
+        logData.push_back(cpsr);
+        logData.push_back(get_psr());
+
+        // Write to file as raw binary (little-endian)
+        logFile.write(reinterpret_cast<const char *>(logData.data()),
+                      logData.size() * sizeof(uint32_t));
 
         // std::cout << std::hex << regs[15] - 8 << ": " << std::hex << instr
         // << std::endl;
@@ -147,6 +190,7 @@ void CPU::reset() {
     regs[15] = 0x08000000;
 
     cpsr |= MODE::SYS;
+    cpsr |= CONTROL::I;
     cpsr |= CONTROL::F;
   } else {
     regs[13] = regs_fiq[5] = regs_abt[0] = regs_und[0] = 0;
@@ -172,14 +216,20 @@ void CPU::reset() {
 uint32_t CPU::get_cpsr() { return cpsr; }
 void CPU::set_cpsr(uint32_t val) { cpsr = val; }
 
+uint32_t dots = 0;
+
 void CPU::cycle(uint32_t count) {
   // for (uint32_t i = 0; i < count; i++) {
   //   // if (cycles % 64 == 0) {
   //   // bus->tick_ppu();
   //   // }
   // }
-  bus->tick_ppu(count);
   cycles += count;
+  dots += count;
+  if (dots >= 1232) {
+    bus->tick_ppu(cycles);
+    dots -= 1232;
+  }
 }
 
 void CPU::arm_fetch() {
